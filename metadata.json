@@ -1,0 +1,6 @@
+{
+  "name": "IncomeZoneX",
+  "description": "Smart Earning and Rewards Platform with daily tasks, scratch, spin, quizzes, referrals, wallet withdrawals, and community links in English and বাংলা.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
