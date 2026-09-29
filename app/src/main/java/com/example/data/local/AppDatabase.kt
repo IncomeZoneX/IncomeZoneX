@@ -45,7 +45,7 @@ import kotlinx.coroutines.launch
         NotificationReadEntity::class,
         AuditLogEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -110,7 +110,7 @@ abstract class AppDatabase : RoomDatabase() {
                 AppConfigEntity("daily_checkin_base_coins", "50", "Base coins for daily check-in"),
                 AppConfigEntity(
                     "notice_text_en",
-                    "Welcome to IncomeZoneX! Earn daily coins via Spin, Scratch & Sell Tasks. Withdraw via bKash, Nagad & Rocket instantly!",
+                    "Welcome to IncomeZoneX! Earn daily cash via Spin, Scratch & Sell Tasks. Withdraw via bKash, Nagad & Rocket instantly!",
                     "Dashboard Announcement (English)"
                 ),
                 AppConfigEntity(
@@ -130,7 +130,30 @@ abstract class AppDatabase : RoomDatabase() {
                 AppConfigEntity("feature_withdrawals_enabled", "true", "Cashout / Withdrawal Switch"),
                 AppConfigEntity("feature_announcements_enabled", "true", "Announcements / Notifications"),
                 AppConfigEntity("premium_upgrade_cost_coins", "3000", "Coins needed to upgrade to Premium"),
-                AppConfigEntity("premium_upgrade_cost_bdt", "30", "BDT equivalent for Premium")
+                AppConfigEntity("premium_upgrade_cost_bdt", "30", "BDT equivalent for Premium"),
+                // Maintenance Mode Configs
+                AppConfigEntity("maintenance_mode_enabled", "false", "Global App Maintenance Mode Switch"),
+                AppConfigEntity("maintenance_title_en", "System Maintenance in Progress", "Maintenance Screen Title EN"),
+                AppConfigEntity("maintenance_title_bn", "সিস্টেম রক্ষণাবেক্ষণ চলছে", "Maintenance Screen Title BN"),
+                AppConfigEntity("maintenance_message_en", "We are currently improving our services to provide you with the best experience. The app will be back online shortly!", "Maintenance Message EN"),
+                AppConfigEntity("maintenance_message_bn", "উন্নত সেবার জন্য প্ল্যাটফর্ম রক্ষণাবেক্ষণের কাজ চলছে। সাময়িক অসুবিধার জন্য আমরা আন্তরিকভাবে দুঃখিত। দ্রুতই অ্যাপ পুনরায় চালু হবে!", "Maintenance Message BN"),
+                AppConfigEntity("maintenance_start_time", "", "Scheduled Maintenance Start Time"),
+                AppConfigEntity("maintenance_end_time", "", "Scheduled Maintenance End Time"),
+                // Account Activation & Pro System
+                AppConfigEntity("feature_require_activation", "true", "Require Account Activation Deposit"),
+                AppConfigEntity("account_activation_fee_bdt", "100", "Activation Fee in BDT"),
+                AppConfigEntity("pro_activation_percent", "150", "Pro Upgrade Requirement as Percentage of Base Activation"),
+                AppConfigEntity("pro_daily_task_limit", "10", "Max daily Pro tasks allowed per account"),
+                // Withdrawal Charges
+                AppConfigEntity("withdraw_charge_percent", "5", "Withdrawal Fee Percentage"),
+                AppConfigEntity("min_withdraw_bdt", "50", "Minimum Withdrawal in BDT"),
+                // Deposit Payment Numbers & Details
+                AppConfigEntity("deposit_bkash_number", "01700000000 (Send Money)", "Deposit bKash Number"),
+                AppConfigEntity("deposit_nagad_number", "01800000000 (Send Money)", "Deposit Nagad Number"),
+                AppConfigEntity("deposit_rocket_number", "01900000000 (Send Money)", "Deposit Rocket Number"),
+                AppConfigEntity("deposit_upay_number", "01600000000 (Send Money)", "Deposit Upay Number"),
+                AppConfigEntity("deposit_usdt_address", "TYD9q3...TRC20AddressHere", "Deposit USDT TRC20 Address"),
+                AppConfigEntity("referral_base_url", "https://incomezonex.com/join?ref=", "Referral Base Web Link")
             )
             configDao.setConfigs(defaultConfigList)
 
@@ -152,8 +175,9 @@ abstract class AppDatabase : RoomDatabase() {
                 userDao.insertUser(defaultUser)
             }
 
-            // Seed Task Groups
-            val group1Id = groupDao.insertGroup(
+            // Seed Task Groups only if not already seeded
+            if (groupDao.getGroupCount() == 0) {
+                val group1Id = groupDao.insertGroup(
                 TaskGroupEntity(
                     nameEn = "Social & Digital Leads",
                     nameBn = "ডিজিটাল ও সোশ্যাল লিডস",
@@ -316,6 +340,7 @@ abstract class AppDatabase : RoomDatabase() {
                     isImportant = false
                 )
             )
+            }
         }
     }
 }

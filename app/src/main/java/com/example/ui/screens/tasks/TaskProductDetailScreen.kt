@@ -58,11 +58,13 @@ fun TaskProductDetailScreen(
     product: ProductTaskEntity,
     group: TaskGroupEntity,
     onSubmitSuccess: () -> Unit,
+    onNavigateToDeposit: () -> Unit = {},
     onBack: () -> Unit
 ) {
     val lang by viewModel.currentLanguage.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
     val user by viewModel.currentUser.collectAsState()
+    val configs by viewModel.appConfigs.collectAsState()
 
     val fields = remember(product) {
         JsonUtils.parseFieldsConfig(product.fieldsConfigJson)
@@ -70,6 +72,10 @@ fun TaskProductDetailScreen(
 
     // Input values for each fieldId
     val formValues = remember { mutableStateMapOf<String, String>() }
+
+    val isUserActivated = user?.isActivated ?: true
+    val isProTask = group.accessRule == "PREMIUM" || product.accessRule == "PREMIUM"
+    val proDailyLimit = configs["pro_daily_task_limit"] ?: "10"
 
     Scaffold(
         topBar = {
@@ -93,6 +99,65 @@ fun TaskProductDetailScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Inactive Account Warning
+            if (!isUserActivated) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().testTag("activation_required_task_card"),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = GoldAccent.copy(alpha = 0.15f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Info, contentDescription = null, tint = GoldAccent)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "account_inactive".tr(lang),
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = GoldAccent
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "activation_required_msg".tr(lang),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = onNavigateToDeposit,
+                            modifier = Modifier.fillMaxWidth().height(44.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = GoldAccent, contentColor = Color.Black)
+                        ) {
+                            Text("activate_account_now".tr(lang), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // Task Offline / Maintenance Notice
+            if (!product.isEnabled) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().testTag("task_maintenance_card"),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(36.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (product.maintenanceNotice.isNotBlank()) product.maintenanceNotice else "task_offline_notice".tr(lang),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
+            }
+
             // Header Info Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -133,6 +198,38 @@ fun TaskProductDetailScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
+                    if (isProTask) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(GoldAccent.copy(alpha = 0.2f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "pro_earning_range".tr(lang),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GoldAccent
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(EmeraldPrimary.copy(alpha = 0.2f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "Daily Limit: $proDailyLimit tasks",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EmeraldPrimary
+                                )
+                            }
+                        }
+                    }
+
                     val desc = if (lang == LanguageCode.BN) product.descriptionBn else product.descriptionEn
                     if (desc.isNotBlank()) {
                         Spacer(modifier = Modifier.height(12.dp))
@@ -152,11 +249,12 @@ fun TaskProductDetailScreen(
             }
 
             // Custom Text Fields Form
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
+            if (isUserActivated && product.isEnabled) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
                 Column(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -252,6 +350,7 @@ fun TaskProductDetailScreen(
                         )
                     }
                 }
+            }
             }
         }
     }

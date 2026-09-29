@@ -79,8 +79,6 @@ fun TasksScreen(
     val lang by viewModel.currentLanguage.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
     val user by viewModel.currentUser.collectAsState()
-    val isCheckedInToday by viewModel.isCheckedInToday.collectAsState()
-    val checkInStreak by viewModel.checkInStreak.collectAsState()
     val enabledGroups by viewModel.enabledTaskGroups.collectAsState()
 
     // Read Article Task State
@@ -122,104 +120,6 @@ fun TasksScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Daily Streak Claim Card
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, tint = GoldAccent)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "daily_streak".tr(lang),
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                            Text(
-                                text = "Streak: $checkInStreak Days",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = GoldAccent
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // 7-day streak chips
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            (1..7).forEach { day ->
-                                val isPastDay = day < checkInStreak || (day == checkInStreak.toInt() && isCheckedInToday)
-                                val isCurrentDay = day == checkInStreak.toInt() && !isCheckedInToday
-
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(
-                                            when {
-                                                isPastDay -> EmeraldPrimary
-                                                isCurrentDay -> GoldAccent.copy(alpha = 0.3f)
-                                                else -> MaterialTheme.colorScheme.surface
-                                            }
-                                        )
-                                        .border(
-                                            1.dp,
-                                            if (isCurrentDay) GoldAccent else Color.Transparent,
-                                            RoundedCornerShape(8.dp)
-                                        )
-                                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(
-                                            text = "D$day",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = if (isPastDay) Color.White else MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = "+${50 + (day * 10)}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = if (isPastDay) Color.White else GoldAccent
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        Button(
-                            onClick = { viewModel.claimDailyCheckIn() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp)
-                                .testTag("claim_daily_checkin_button"),
-                            enabled = !isCheckedInToday,
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isCheckedInToday) MaterialTheme.colorScheme.surface else EmeraldPrimary,
-                                contentColor = Color.White
-                            )
-                        ) {
-                            Text(
-                                text = if (isCheckedInToday) "claimed".tr(lang) else "claim".tr(lang),
-                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
-                            )
-                        }
-                    }
-                }
-            }
-
             // My Submissions button
             if (onNavigateToSubmissions != null) {
                 item {

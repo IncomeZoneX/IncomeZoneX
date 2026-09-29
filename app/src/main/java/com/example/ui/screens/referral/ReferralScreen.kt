@@ -67,8 +67,8 @@ fun copyToClipboard(context: Context, text: String, message: String) {
     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 }
 
-fun shareInviteMessage(context: Context, code: String, msgTemplate: String) {
-    val shareText = String.format(msgTemplate, code)
+fun shareInviteMessage(context: Context, code: String, link: String, msgTemplate: String) {
+    val shareText = "Join IncomeZoneX to earn money via micro-tasks! Register with my referral link: $link (Code: $code). Get instant welcome bonus!"
     val sendIntent = Intent().apply {
         action = Intent.ACTION_SEND
         putExtra(Intent.EXTRA_TEXT, shareText)
@@ -87,10 +87,13 @@ fun ReferralScreen(
     val lang by viewModel.currentLanguage.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
     val user by viewModel.currentUser.collectAsState()
+    val configs by viewModel.appConfigs.collectAsState()
     val context = LocalContext.current
 
     var inputReferralCode by remember { mutableStateOf("") }
-    val userReferralCode = user?.referralCode ?: "TR8842"
+    val userReferralCode = user?.referralCode ?: "IZ8842"
+    val referralBaseUrl = configs["referral_base_url"] ?: "https://incomezonex.com/join?ref="
+    val userReferralLink = "$referralBaseUrl$userReferralCode"
     val isAlreadyReferred = !user?.referredBy.isNullOrBlank()
 
     Scaffold(
@@ -253,7 +256,7 @@ fun ReferralScreen(
                         Button(
                             onClick = {
                                 val template = "share_message_en".tr(lang)
-                                shareInviteMessage(context, userReferralCode, template)
+                                shareInviteMessage(context, userReferralCode, userReferralLink, template)
                             },
                             modifier = Modifier
                                 .weight(1.5f)
@@ -272,6 +275,85 @@ fun ReferralScreen(
                                 text = "share".tr(lang),
                                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                             )
+                        }
+                    }
+                }
+            }
+
+            // Configurable Referral Link Card
+            Card(
+                modifier = Modifier.fillMaxWidth().testTag("referral_link_card"),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "referral_link".tr(lang),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, EmeraldPrimary.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            .clickable {
+                                copyToClipboard(context, userReferralLink, "copied".tr(lang))
+                            }
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = userReferralLink,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                            color = EmeraldPrimary,
+                            maxLines = 1
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                copyToClipboard(context, userReferralLink, "copied".tr(lang))
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                                .testTag("copy_referral_link_button"),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary.copy(alpha = 0.15f), contentColor = EmeraldPrimary)
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("copy_link".tr(lang), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+
+                        Button(
+                            onClick = {
+                                val template = "share_message_en".tr(lang)
+                                shareInviteMessage(context, userReferralCode, userReferralLink, template)
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                                .testTag("share_referral_link_button"),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary, contentColor = Color.White)
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("share".tr(lang), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                     }
                 }

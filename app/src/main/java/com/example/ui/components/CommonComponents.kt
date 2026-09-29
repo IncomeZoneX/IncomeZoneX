@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -141,29 +142,20 @@ fun TakaTopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Coins Badge
+            // Balance Badge in BDT (৳)
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
-                    .background(GoldAccent.copy(alpha = 0.18f))
-                    .border(1.dp, GoldAccent.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 8.dp, vertical = 5.dp)
+                    .background(EmeraldPrimary.copy(alpha = 0.15f))
+                    .border(1.dp, EmeraldPrimary.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
                     .testTag("coins_badge_top")
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.MonetizationOn,
-                        contentDescription = "Coins",
-                        tint = GoldAccent,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text(
-                        text = "$coins",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                Text(
+                    text = "৳ $coins",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold),
+                    color = EmeraldPrimary
+                )
             }
 
             // Notification Bell with Badge
@@ -376,31 +368,18 @@ fun BalanceHeroCard(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(vertical = 4.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.MonetizationOn,
-                                contentDescription = null,
-                                tint = GoldAccentLight,
-                                modifier = Modifier.size(30.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "$coins",
+                                text = "৳ $coins",
                                 style = MaterialTheme.typography.headlineLarge.copy(
                                     fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 32.sp
+                                    fontSize = 34.sp
                                 ),
                                 color = Color.White
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "coins".tr(lang),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = GoldAccentLight
                             )
                         }
                     }
 
-                    // Equivalent BDT Pill
+                    // Available Status Pill
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(16.dp))
@@ -409,12 +388,12 @@ fun BalanceHeroCard(
                     ) {
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
-                                text = "approx_value".tr(lang),
+                                text = "taka".tr(lang),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color(0xFFD1FAE5)
                             )
                             Text(
-                                text = "৳ ${String.format(java.util.Locale.US, "%.2f", bdt)}",
+                                text = "BDT (৳)",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 color = Color.White
                             )
@@ -460,7 +439,7 @@ fun BalanceHeroCard(
                         )
                     ) {
                         Text(
-                            text = "refer_btn".tr(lang),
+                            text = "deposit_money".tr(lang),
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                         )
                     }
@@ -535,9 +514,116 @@ fun PremiumLockedCard(
                 Icon(imageVector = Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = String.format(java.util.Locale.US, "upgrade_now_coins".tr(lang), upgradeCostCoins),
+                    text = String.format(java.util.Locale.US, "upgrade_now_coins".tr(lang), upgradeCostCoins.toString()),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun MaintenanceScreen(
+    title: String,
+    message: String,
+    lang: LanguageCode,
+    telegramUrl: String,
+    onRefresh: () -> Unit
+) {
+    val context = LocalContext.current
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("maintenance_card"),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(GoldAccent.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Campaign,
+                        contentDescription = "Maintenance",
+                        tint = GoldAccent,
+                        modifier = Modifier.size(44.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Text(
+                    text = title.ifBlank { "maintenance_title".tr(lang) },
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = message.ifBlank { "maintenance_screen_desc".tr(lang) },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    lineHeight = 22.sp
+                )
+
+                Spacer(modifier = Modifier.height(28.dp))
+
+                Button(
+                    onClick = onRefresh,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("maintenance_refresh_button"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = EmeraldPrimary,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text(
+                        text = "refresh_btn".tr(lang),
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Button(
+                    onClick = { openExternalUrl(context, telegramUrl) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("maintenance_telegram_button"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                ) {
+                    Text(
+                        text = "join_telegram".tr(lang),
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
             }
         }
     }

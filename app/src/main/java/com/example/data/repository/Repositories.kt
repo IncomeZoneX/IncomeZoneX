@@ -67,12 +67,15 @@ class UserRepository(
         val referralCode = "IZ" + UUID.randomUUID().toString().take(4).uppercase()
         val welcomeCoins = 100L
 
-        var referrerUser: UserEntity? = null
-        if (!referredByCode.isNullOrBlank()) {
-            referrerUser = userDao.getUserByReferralCode(referredByCode.trim().uppercase())
+        if (referredByCode.isNullOrBlank()) {
+            return Result.failure(Exception("Registration requires a valid referral code or referral link"))
         }
 
-        val initialCoins = if (referrerUser != null) welcomeCoins + 500L else welcomeCoins
+        val cleanRef = referredByCode.trim().uppercase()
+        val referrerUser = userDao.getUserByReferralCode(cleanRef)
+            ?: return Result.failure(Exception("Invalid referral code. A valid referral code is required to register."))
+
+        val initialCoins = welcomeCoins + 50L
 
         val newUser = UserEntity(
             name = name.trim(),
@@ -84,7 +87,8 @@ class UserRepository(
             coins = initialCoins,
             totalEarned = initialCoins,
             isAdmin = false,
-            membershipTier = "FREE"
+            membershipTier = "FREE",
+            isActivated = false
         )
 
         val newId = userDao.insertUser(newUser)
@@ -96,13 +100,13 @@ class UserRepository(
                 userId = newId,
                 type = "WELCOME_BONUS",
                 coins = welcomeCoins,
-                titleEn = "Welcome Bonus",
-                titleBn = "ওয়েলকাম বোনাস"
+                titleEn = "Welcome Bonus (৳$welcomeCoins)",
+                titleBn = "ওয়েলকাম বোনাস (৳$welcomeCoins)"
             )
         )
 
         if (referrerUser != null) {
-            val refBonus = 500L
+            val refBonus = 50L
             userDao.addCoins(referrerUser.id, refBonus)
             transactionDao.insertTransaction(
                 TransactionEntity(
@@ -118,7 +122,7 @@ class UserRepository(
                 TransactionEntity(
                     userId = newId,
                     type = "REFERRAL_CLAIM",
-                    coins = 500L,
+                    coins = refBonus,
                     titleEn = "Referral Code Bonus",
                     titleBn = "রেফারেল কোড বোনাস"
                 )
@@ -126,6 +130,39 @@ class UserRepository(
         }
 
         return Result.success(createdUser)
+    }
+
+    suspend fun updateProfile(
+        userId: Long,
+        newName: String,
+        newPhone: String,
+        newPassword: String?
+    ): Result<UserEntity> {
+        val user = userDao.getUserByIdSync(userId) ?: return Result.failure(Exception("User not found"))
+        val finalPassword = if (!newPassword.isNullOrBlank()) newPassword.trim() else user.passwordHash
+        userDao.updateProfile(userId, newName.trim(), newPhone.trim(), finalPassword)
+        val updated = user.copy(name = newName.trim(), phone = newPhone.trim(), passwordHash = finalPassword)
+        auditLogDao.insertAuditLog(
+            AuditLogEntity(
+                action = "PROFILE_UPDATE",
+                details = "User ID $userId updated profile: name=$newName, phone=$newPhone",
+                performedBy = "UserSelf"
+            )
+        )
+        return Result.success(updated)
+    }
+
+    suspend fun activateAccount(userId: Long, adminName: String = "System"): Result<Unit> {
+        val user = userDao.getUserByIdSync(userId) ?: return Result.failure(Exception("User not found"))
+        userDao.updateActivationStatus(userId, true)
+        auditLogDao.insertAuditLog(
+            AuditLogEntity(
+                action = "ACCOUNT_ACTIVATED",
+                details = "User ${user.name} (ID $userId) account was activated",
+                performedBy = adminName
+            )
+        )
+        return Result.success(Unit)
     }
 
     suspend fun applyReferralCode(userId: Long, code: String): Result<Long> {
@@ -196,11 +233,11 @@ class UserRepository(
         }
 
         if (user.coins < costCoins) {
-            return Result.failure(Exception("Insufficient coins! Required: $costCoins coins"))
+            return Result.failure(Exception("Insufficient balance! Required: ৳$costCoins"))
         }
 
         val rows = userDao.deductCoins(userId, costCoins)
-        if (rows == 0) return Result.failure(Exception("Coin deduction failed"))
+        if (rows == 0) return Result.failure(Exception("Balance deduction failed"))
 
         userDao.updateMembershipTier(userId, "PREMIUM")
 
@@ -217,7 +254,7 @@ class UserRepository(
         auditLogDao.insertAuditLog(
             AuditLogEntity(
                 action = "MEMBERSHIP_UPGRADE",
-                details = "User ${user.name} (ID $userId) upgraded to PREMIUM for $costCoins coins",
+                details = "User ${user.name} (ID $userId) upgraded to PREMIUM for ৳$costCoins",
                 performedBy = "UserSelf"
             )
         )
@@ -255,7 +292,7 @@ class UserRepository(
         auditLogDao.insertAuditLog(
             AuditLogEntity(
                 action = "ADMIN_ADJUST_BALANCE",
-                details = "Admin $adminName adjusted user $userId coins from ${user.coins} to $newCoins. Reason: $reason",
+                details = "Admin $adminName adjusted user $userId balance from ৳${user.coins} to ৳$newCoins. Reason: $reason",
                 performedBy = adminName
             )
         )
@@ -282,15 +319,18 @@ class RewardRepository(
         userId: Long,
         method: String,
         accountNumber: String,
-        coins: Long,
-        bdtAmount: Double
+        amountBdt: Long,
+        feePercent: Double = 5.0
     ): Result<Long> {
         val user = userDao.getUserByIdSync(userId) ?: return Result.failure(Exception("User not found"))
-        if (user.coins < coins) {
+        if (user.coins < amountBdt) {
             return Result.failure(Exception("Insufficient balance"))
         }
 
-        val rowsUpdated = userDao.deductCoins(userId, coins)
+        val feeAmount = (amountBdt * feePercent / 100.0)
+        val netPayout = amountBdt - feeAmount
+
+        val rowsUpdated = userDao.deductCoins(userId, amountBdt)
         if (rowsUpdated == 0) {
             return Result.failure(Exception("Withdrawal failed: insufficient balance"))
         }
@@ -302,9 +342,10 @@ class RewardRepository(
                 userPhone = user.phone.ifEmpty { accountNumber },
                 method = method,
                 accountNumber = accountNumber,
-                coins = coins,
-                amountCurrency = bdtAmount,
-                status = "PENDING"
+                coins = amountBdt,
+                amountCurrency = netPayout,
+                status = "PENDING",
+                remarks = "Fee: ৳${String.format(Locale.US, "%.2f", feeAmount)} ($feePercent%), Net: ৳${String.format(Locale.US, "%.2f", netPayout)}"
             )
         )
 
@@ -312,9 +353,9 @@ class RewardRepository(
             TransactionEntity(
                 userId = userId,
                 type = "WITHDRAWAL",
-                coins = -coins,
-                titleEn = "Withdrawal to $method ($accountNumber)",
-                titleBn = "$method ($accountNumber) এ উইথড্র",
+                coins = -amountBdt,
+                titleEn = "Withdrawal ৳$amountBdt to $method ($accountNumber) [Net: ৳${String.format(Locale.US, "%.2f", netPayout)}]",
+                titleBn = "$method ($accountNumber) এ ৳$amountBdt উইথড্র [প্রাপ্ত: ৳${String.format(Locale.US, "%.2f", netPayout)}]",
                 status = "PENDING",
                 method = method,
                 accountNumber = accountNumber
@@ -322,6 +363,51 @@ class RewardRepository(
         )
 
         return Result.success(withdrawalId)
+    }
+
+    suspend fun submitDepositRequest(
+        userId: Long,
+        method: String,
+        senderNumber: String,
+        trxId: String,
+        amountBdt: Double,
+        reason: String
+    ): Result<Long> {
+        val user = userDao.getUserByIdSync(userId) ?: return Result.failure(Exception("User not found"))
+        val cleanReason = when (reason) {
+            "ACCOUNT_ACTIVATION" -> "Account Activation"
+            "PRO_MEMBERSHIP" -> "Pro Upgrade"
+            else -> "General Deposit"
+        }
+
+        // Record pending deposit transaction
+        val txId = transactionDao.insertTransaction(
+            TransactionEntity(
+                userId = userId,
+                type = "DEPOSIT",
+                coins = amountBdt.toLong(),
+                titleEn = "Deposit (৳$amountBdt) for $cleanReason via $method - TrxID: $trxId",
+                titleBn = "$method দিয়ে $cleanReason ডিপোজিট (৳$amountBdt) - TrxID: $trxId",
+                status = "COMPLETED",
+                method = method,
+                accountNumber = senderNumber
+            )
+        )
+
+        // Process purpose
+        if (reason == "ACCOUNT_ACTIVATION") {
+            userDao.updateActivationStatus(userId, true)
+        } else if (reason == "PRO_MEMBERSHIP") {
+            userDao.updateMembershipTier(userId, "PREMIUM")
+        }
+        userDao.addCoins(userId, amountBdt.toLong())
+
+        return Result.success(txId)
+    }
+
+    suspend fun cleanOldApprovedSubmissions(submissionDao: TaskSubmissionDao): Int {
+        val twentyFourHoursAgo = System.currentTimeMillis() - (24 * 60 * 60 * 1000L)
+        return submissionDao.deleteApprovedSubmissionsOlderThan(twentyFourHoursAgo)
     }
 
     suspend fun updateWithdrawalStatus(
@@ -485,15 +571,15 @@ class ProductRepository(
         )
 
         if (status == "APPROVED") {
-            // Credit coins to user based on final amount in BDT
-            val coinsToAdd = (finalAmount * pointsPerBdt).toLong()
-            userDao.addCoins(submission.userId, coinsToAdd)
+            // Credit BDT balance to user based on final approved amount
+            val amountToAdd = finalAmount.toLong().coerceAtLeast(1L)
+            userDao.addCoins(submission.userId, amountToAdd)
 
             transactionDao.insertTransaction(
                 TransactionEntity(
                     userId = submission.userId,
                     type = "TASK_SUBMISSION",
-                    coins = coinsToAdd,
+                    coins = amountToAdd,
                     titleEn = "Task Approved: ${submission.productTitle} (৳$finalAmount)",
                     titleBn = "টাস্ক অনুমোদিত: ${submission.productTitle} (৳$finalAmount)"
                 )
@@ -563,7 +649,7 @@ class ConfigRepository(private val appConfigDao: AppConfigDao) {
 
     suspend fun updateRates(pointsPerBdt: String, minWithdrawCoins: String, noticeEn: String, noticeBn: String) {
         appConfigDao.setConfig(AppConfigEntity("points_per_bdt", pointsPerBdt, "Points per BDT"))
-        appConfigDao.setConfig(AppConfigEntity("min_withdraw_coins", minWithdrawCoins, "Min Withdrawal Coins"))
+        appConfigDao.setConfig(AppConfigEntity("min_withdraw_bdt", minWithdrawCoins, "Min Withdrawal BDT"))
         appConfigDao.setConfig(AppConfigEntity("notice_text_en", noticeEn, "Dashboard Notice English"))
         appConfigDao.setConfig(AppConfigEntity("notice_text_bn", noticeBn, "Dashboard Notice Bangla"))
     }

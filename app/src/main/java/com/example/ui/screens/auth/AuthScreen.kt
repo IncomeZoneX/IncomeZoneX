@@ -116,7 +116,7 @@ fun AuthScreen(
             Spacer(modifier = Modifier.height(14.dp))
 
             Text(
-                text = "TakaReward",
+                text = "IncomeZoneX",
                 style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -212,9 +212,15 @@ fun AuthScreen(
                     if (selectedTab == 1) {
                         OutlinedTextField(
                             value = referralCode,
-                            onValueChange = { referralCode = it.uppercase() },
-                            label = { Text("referral_optional".tr(lang)) },
-                            placeholder = { Text("e.g. TR8842") },
+                            onValueChange = {
+                                val raw = it.trim()
+                                val extracted = if (raw.contains("ref=")) {
+                                    raw.substringAfter("ref=").takeWhile { c -> c.isLetterOrDigit() }.uppercase()
+                                } else raw.uppercase()
+                                referralCode = extracted
+                            },
+                            label = { Text("Referral Code / Link (Required)") },
+                            placeholder = { Text("e.g. IZ8842 or https://...join?ref=IZ8842") },
                             leadingIcon = { Icon(Icons.Default.Tag, contentDescription = null) },
                             modifier = Modifier.fillMaxWidth().testTag("auth_input_referral"),
                             singleLine = true,
@@ -239,12 +245,16 @@ fun AuthScreen(
                                     viewModel.showMessage("Please enter your name", isError = true)
                                     return@Button
                                 }
+                                if (referralCode.isBlank()) {
+                                    viewModel.showMessage("Registration requires a valid referral code or referral link", isError = true)
+                                    return@Button
+                                }
                                 viewModel.register(
                                     name = name.trim(),
                                     email = email.trim(),
                                     phone = phone.trim(),
                                     pass = password.trim(),
-                                    refCode = referralCode.trim().ifEmpty { null }
+                                    refCode = referralCode.trim()
                                 ) {
                                     onSuccessAuth()
                                 }

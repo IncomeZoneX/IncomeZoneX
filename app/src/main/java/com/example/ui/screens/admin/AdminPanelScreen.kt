@@ -45,6 +45,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -127,6 +128,7 @@ fun AdminPanelScreen(
 
     var processingSubmission by remember { mutableStateOf<TaskSubmissionEntity?>(null) }
     var adjustingUser by remember { mutableStateOf<UserEntity?>(null) }
+    var showChangePinDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -203,6 +205,50 @@ fun AdminPanelScreen(
                     }
                 }
             } else {
+                // Admin Status & Action Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(EmeraldPrimary)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Admin Console (Active)",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                            color = EmeraldPrimary
+                        )
+                    }
+
+                    Button(
+                        onClick = { showChangePinDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag("admin_change_pin_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = GoldAccent,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Change PIN / Pass",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
                 // Unlocked Admin Console with 8 tabs
                 val tabs = listOf(
                     "Submissions (${allSubmissions.count { it.status == "PENDING" }})",
@@ -210,9 +256,9 @@ fun AdminPanelScreen(
                     "Tasks (${allProducts.size})",
                     "Members (${allUsers.size})",
                     "Cashouts (${allWithdrawals.count { it.status == "PENDING" }})",
-                    "Toggles",
+                    "Toggles & Maint.",
                     "Notices (${allAnnouncements.size})",
-                    "Links & Audit"
+                    "Config & Audit"
                 )
 
                 ScrollableTabRow(
@@ -280,10 +326,11 @@ fun AdminPanelScreen(
                         onUpdate = { id, st, note -> viewModel.updateWithdrawalStatus(id, st, note) }
                     )
 
-                    // TAB 5: FEATURE TOGGLES
+                    // TAB 5: FEATURE TOGGLES & MAINTENANCE
                     5 -> AdminTogglesTab(
                         configs = configs,
-                        onToggle = { key, value -> viewModel.setFeatureToggle(key, value) }
+                        onToggle = { key, value -> viewModel.setFeatureToggle(key, value) },
+                        onSaveConfig = { key, value -> viewModel.setAppConfig(key, value) }
                     )
 
                     // TAB 6: NOTICES & ANNOUNCEMENTS
@@ -300,10 +347,11 @@ fun AdminPanelScreen(
                         onDelete = { ann -> viewModel.adminDeleteAnnouncement(ann.id) }
                     )
 
-                    // TAB 7: LINKS & AUDIT LOGS
+                    // TAB 7: PLATFORM CONFIG & AUDIT LOGS
                     7 -> AdminLinksAndAuditTab(
                         configs = configs,
                         auditLogs = auditLogs,
+                        onSaveConfig = { key, value -> viewModel.setAppConfig(key, value) },
                         onSaveLinks = { tg, grp, fb -> viewModel.updateAdminSocialConfigs(tg, grp, fb) },
                         onSaveRates = { rate, minW, nEn, nBn -> viewModel.updateAdminRatesAndNotices(rate, minW, nEn, nBn) }
                     )
@@ -386,6 +434,70 @@ fun AdminPanelScreen(
         )
     }
 
+    // Change Admin PIN / Password Dialog
+    if (showChangePinDialog) {
+        var currentPin by remember { mutableStateOf("") }
+        var newPin by remember { mutableStateOf("") }
+        var confirmPin by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showChangePinDialog = false },
+            title = { Text("Change Admin Password / PIN") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Update the access PIN for this Admin Panel. Default PIN is 1234.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = currentPin,
+                        onValueChange = { currentPin = it },
+                        label = { Text("Current PIN") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        modifier = Modifier.fillMaxWidth().testTag("current_pin_input"),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = newPin,
+                        onValueChange = { newPin = it },
+                        label = { Text("New PIN (min 4 digits)") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        modifier = Modifier.fillMaxWidth().testTag("new_pin_input"),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = confirmPin,
+                        onValueChange = { confirmPin = it },
+                        label = { Text("Confirm New PIN") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        modifier = Modifier.fillMaxWidth().testTag("confirm_pin_input"),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val success = viewModel.adminChangePin(currentPin, newPin, confirmPin)
+                        if (success) {
+                            showChangePinDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                ) {
+                    Text("Update PIN")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showChangePinDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     // Adjust Balance Dialog
     adjustingUser?.let { targetUser ->
         var newCoinsStr by remember { mutableStateOf(targetUser.coins.toString()) }
@@ -396,11 +508,11 @@ fun AdminPanelScreen(
             title = { Text("Adjust Balance: ${targetUser.name}") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Current Coins: ${targetUser.coins}")
+                    Text("Current Balance: ৳${targetUser.coins}", fontWeight = FontWeight.Bold)
                     OutlinedTextField(
                         value = newCoinsStr,
                         onValueChange = { newCoinsStr = it },
-                        label = { Text("New Coin Balance") },
+                        label = { Text("New Balance (৳)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -522,6 +634,7 @@ fun AdminPanelScreen(
         var accessRule by remember { mutableStateOf(editingProduct?.accessRule ?: "BOTH") }
         var selectedGroupId by remember { mutableStateOf(editingProduct?.groupId ?: (allGroups.firstOrNull()?.id ?: 1L)) }
         var isEnabled by remember { mutableStateOf(editingProduct?.isEnabled ?: true) }
+        var maintenanceNotice by remember { mutableStateOf(editingProduct?.maintenanceNotice ?: "") }
 
         // Fields config builder list
         val fieldsList = remember {
@@ -601,6 +714,32 @@ fun AdminPanelScreen(
                     }
 
                     item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Task Active (ON/OFF):", fontWeight = FontWeight.Bold)
+                                    Switch(checked = isEnabled, onCheckedChange = { isEnabled = it })
+                                }
+                                OutlinedTextField(
+                                    value = maintenanceNotice,
+                                    onValueChange = { maintenanceNotice = it },
+                                    label = { Text("Offline / Maintenance Notice (Optional)") },
+                                    placeholder = { Text("Shown to users if task is turned OFF") },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+
+                    item {
                         Spacer(modifier = Modifier.height(6.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -675,6 +814,7 @@ fun AdminPanelScreen(
                                 rateType = "BDT",
                                 accessRule = accessRule,
                                 isEnabled = isEnabled,
+                                maintenanceNotice = maintenanceNotice.trim(),
                                 fieldsConfigJson = jsonFields
                             )
                             viewModel.adminSaveProduct(product)
@@ -1033,26 +1173,148 @@ fun AdminCashoutsTab(
 @Composable
 fun AdminTogglesTab(
     configs: Map<String, String>,
-    onToggle: (String, Boolean) -> Unit
+    onToggle: (String, Boolean) -> Unit,
+    onSaveConfig: (String, String) -> Unit
 ) {
+    var maintTitleEn by remember(configs) { mutableStateOf(configs["maintenance_title_en"] ?: "System Maintenance in Progress") }
+    var maintTitleBn by remember(configs) { mutableStateOf(configs["maintenance_title_bn"] ?: "সিস্টেম রক্ষণাবেক্ষণ চলছে") }
+    var maintMsgEn by remember(configs) { mutableStateOf(configs["maintenance_message_en"] ?: "We are improving our platform to give you the best experience. The app will return shortly!") }
+    var maintMsgBn by remember(configs) { mutableStateOf(configs["maintenance_message_bn"] ?: "উন্নত সেবার জন্য প্ল্যাটফর্ম রক্ষণাবেক্ষণ চলছে। দ্রুতই অ্যাপ পুনরায় চালু হবে!") }
+    var maintStartTime by remember(configs) { mutableStateOf(configs["maintenance_start_time"] ?: "") }
+    var maintEndTime by remember(configs) { mutableStateOf(configs["maintenance_end_time"] ?: "") }
+    var maintTgUrl by remember(configs) { mutableStateOf(configs["telegram_group_url"] ?: "https://t.me/takareward_support") }
+
+    val isMaintEnabled = configs["maintenance_mode_enabled"] == "true"
+
     val features = listOf(
-        "feature_registration_enabled" to "User Registration",
+        "feature_registration_enabled" to "User Registration Switch",
+        "feature_require_activation" to "Require Account Activation Deposit",
         "feature_free_membership_enabled" to "Free Membership Access",
-        "feature_premium_membership_enabled" to "Premium Membership Upgrades",
+        "feature_premium_membership_enabled" to "Pro Membership Upgrades",
         "feature_spin_enabled" to "Lucky Spin Wheel",
         "feature_scratch_enabled" to "Scratch & Win Cards",
         "feature_quiz_enabled" to "Math Quiz Challenge",
-        "feature_sell_tasks_enabled" to "Text-Only Sell System",
-        "feature_community_links_enabled" to "Telegram / Facebook Links",
+        "feature_sell_tasks_enabled" to "Text-Only Sell / Buy Tasks",
+        "feature_community_links_enabled" to "Community & Social Links",
         "feature_withdrawals_enabled" to "Cashout / Withdrawal System",
         "feature_announcements_enabled" to "Announcements & Notices"
     )
 
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        // GLOBAL MAINTENANCE MODE CARD
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth().testTag("admin_maintenance_config_card"),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = if (isMaintEnabled) ErrorRed.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "🚨 Global Maintenance Mode",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = if (isMaintEnabled) ErrorRed else MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                if (isMaintEnabled) "APP IS CURRENTLY OFFLINE FOR MEMBERS" else "App is ONLINE & Active",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isMaintEnabled) ErrorRed else EmeraldPrimary
+                            )
+                        }
+
+                        Switch(
+                            checked = isMaintEnabled,
+                            onCheckedChange = { onToggle("maintenance_mode_enabled", it) },
+                            modifier = Modifier.testTag("admin_maintenance_switch")
+                        )
+                    }
+
+                    HorizontalDivider()
+
+                    Text("Maintenance Screen Content & Scheduling", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+
+                    OutlinedTextField(
+                        value = maintTitleEn,
+                        onValueChange = { maintTitleEn = it },
+                        label = { Text("Title (English)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = maintTitleBn,
+                        onValueChange = { maintTitleBn = it },
+                        label = { Text("Title (বাংলা)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = maintMsgEn,
+                        onValueChange = { maintMsgEn = it },
+                        label = { Text("Notice / Message (English)") },
+                        minLines = 2,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = maintMsgBn,
+                        onValueChange = { maintMsgBn = it },
+                        label = { Text("Notice / Message (বাংলা)") },
+                        minLines = 2,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = maintStartTime,
+                            onValueChange = { maintStartTime = it },
+                            label = { Text("Start Time (Optional)") },
+                            placeholder = { Text("e.g. 10:00 PM") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = maintEndTime,
+                            onValueChange = { maintEndTime = it },
+                            label = { Text("End Time (Optional)") },
+                            placeholder = { Text("e.g. 06:00 AM") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = maintTgUrl,
+                        onValueChange = { maintTgUrl = it },
+                        label = { Text("Support Telegram Group URL") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Button(
+                        onClick = {
+                            onSaveConfig("maintenance_title_en", maintTitleEn)
+                            onSaveConfig("maintenance_title_bn", maintTitleBn)
+                            onSaveConfig("maintenance_message_en", maintMsgEn)
+                            onSaveConfig("maintenance_message_bn", maintMsgBn)
+                            onSaveConfig("maintenance_start_time", maintStartTime)
+                            onSaveConfig("maintenance_end_time", maintEndTime)
+                            onSaveConfig("telegram_group_url", maintTgUrl)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (isMaintEnabled) ErrorRed else EmeraldPrimary)
+                    ) {
+                        Text("Save Maintenance Settings", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
         item {
             Text("Centralized Feature Switches (ON / OFF)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             Text("Instantly toggle platform features without deleting data", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(modifier = Modifier.height(6.dp))
         }
 
         items(features) { (key, label) ->
@@ -1131,22 +1393,197 @@ fun AdminAnnouncementsTab(
 fun AdminLinksAndAuditTab(
     configs: Map<String, String>,
     auditLogs: List<com.example.data.local.entity.AuditLogEntity>,
+    onSaveConfig: (String, String) -> Unit,
     onSaveLinks: (String, String, String) -> Unit,
     onSaveRates: (String, String, String, String) -> Unit
 ) {
+    var activationFeeBdt by remember(configs) { mutableStateOf(configs["account_activation_fee_bdt"] ?: "100") }
+    var proPercent by remember(configs) { mutableStateOf(configs["pro_activation_percent"] ?: "150") }
+    var proDailyLimit by remember(configs) { mutableStateOf(configs["pro_daily_task_limit"] ?: "10") }
+
+    var minWithdrawBdt by remember(configs) { mutableStateOf(configs["min_withdraw_bdt"] ?: "50") }
+    var withdrawChargePercent by remember(configs) { mutableStateOf(configs["withdraw_charge_percent"] ?: "5") }
+
+    var bkashNum by remember(configs) { mutableStateOf(configs["deposit_bkash_number"] ?: "01700000000 (Send Money)") }
+    var nagadNum by remember(configs) { mutableStateOf(configs["deposit_nagad_number"] ?: "01800000000 (Send Money)") }
+    var rocketNum by remember(configs) { mutableStateOf(configs["deposit_rocket_number"] ?: "01900000000 (Send Money)") }
+    var upayNum by remember(configs) { mutableStateOf(configs["deposit_upay_number"] ?: "01600000000 (Send Money)") }
+    var usdtAddr by remember(configs) { mutableStateOf(configs["deposit_usdt_address"] ?: "TYD9q3...TRC20AddressHere") }
+
+    var referralBaseUrl by remember(configs) { mutableStateOf(configs["referral_base_url"] ?: "https://incomezonex.com/join?ref=") }
+
     var tgChannel by remember(configs) { mutableStateOf(configs["telegram_channel_url"] ?: "https://t.me/takareward_channel") }
     var tgGroup by remember(configs) { mutableStateOf(configs["telegram_group_url"] ?: "https://t.me/takareward_support") }
     var fbPage by remember(configs) { mutableStateOf(configs["facebook_page_url"] ?: "https://facebook.com/takareward.official") }
-    var pointsPerBdt by remember(configs) { mutableStateOf(configs["points_per_bdt"] ?: "100") }
-    var minWithdrawCoins by remember(configs) { mutableStateOf(configs["min_withdraw_coins"] ?: "2000") }
     var noticeEn by remember(configs) { mutableStateOf(configs["notice_text_en"] ?: "") }
     var noticeBn by remember(configs) { mutableStateOf(configs["notice_text_bn"] ?: "") }
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        // PRO & ACTIVATION SYSTEM CARD
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("⭐ Pro System & Account Activation", fontWeight = FontWeight.Bold, color = GoldAccent)
+                    Text("Configure percentage-based Pro requirements and daily limits", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                    OutlinedTextField(
+                        value = activationFeeBdt,
+                        onValueChange = { activationFeeBdt = it },
+                        label = { Text("Base Account Activation Fee (৳)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = proPercent,
+                        onValueChange = { proPercent = it },
+                        label = { Text("Pro Upgrade Requirement (% of Base Fee)") },
+                        placeholder = { Text("e.g. 150 for 150%") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    val base = activationFeeBdt.toDoubleOrNull() ?: 100.0
+                    val pct = proPercent.toDoubleOrNull() ?: 150.0
+                    Text(
+                        "Calculated Pro Upgrade Cost: ৳${(base * pct / 100.0).toInt()} ($pct% of ৳${base.toInt()})",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = GoldAccent
+                    )
+
+                    OutlinedTextField(
+                        value = proDailyLimit,
+                        onValueChange = { proDailyLimit = it },
+                        label = { Text("Max Daily Pro Tasks Allowed Per Account") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Button(
+                        onClick = {
+                            onSaveConfig("account_activation_fee_bdt", activationFeeBdt)
+                            onSaveConfig("pro_activation_percent", proPercent)
+                            onSaveConfig("pro_daily_task_limit", proDailyLimit)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = GoldAccent, contentColor = Color.Black)
+                    ) {
+                        Text("Save Pro & Activation Rules", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // CASHOUT & WITHDRAWAL FEES CARD
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("💸 Cashout Rules & Withdrawal Fees", fontWeight = FontWeight.Bold, color = EmeraldPrimary)
+
+                    OutlinedTextField(
+                        value = minWithdrawBdt,
+                        onValueChange = { minWithdrawBdt = it },
+                        label = { Text("Minimum Withdrawal Amount (৳ BDT)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = withdrawChargePercent,
+                        onValueChange = { withdrawChargePercent = it },
+                        label = { Text("Withdrawal Fee / Charge Percentage (%)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Button(
+                        onClick = {
+                            onSaveConfig("min_withdraw_bdt", minWithdrawBdt)
+                            onSaveConfig("withdraw_charge_percent", withdrawChargePercent)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                    ) {
+                        Text("Save Cashout Settings", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // DEPOSIT PAYMENT NUMBERS CARD
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("💳 Deposit Payment Accounts", fontWeight = FontWeight.Bold)
+                    Text("Numbers and addresses shown to members during deposit/activation", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                    OutlinedTextField(value = bkashNum, onValueChange = { bkashNum = it }, label = { Text("bKash Deposit Number") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = nagadNum, onValueChange = { nagadNum = it }, label = { Text("Nagad Deposit Number") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = rocketNum, onValueChange = { rocketNum = it }, label = { Text("Rocket Deposit Number") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = upayNum, onValueChange = { upayNum = it }, label = { Text("Upay Deposit Number") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = usdtAddr, onValueChange = { usdtAddr = it }, label = { Text("USDT TRC20 Address") }, modifier = Modifier.fillMaxWidth())
+
+                    Button(
+                        onClick = {
+                            onSaveConfig("deposit_bkash_number", bkashNum)
+                            onSaveConfig("deposit_nagad_number", nagadNum)
+                            onSaveConfig("deposit_rocket_number", rocketNum)
+                            onSaveConfig("deposit_upay_number", upayNum)
+                            onSaveConfig("deposit_usdt_address", usdtAddr)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                    ) {
+                        Text("Save Payment Accounts", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // REFERRAL LINK SETTINGS CARD
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("🔗 Referral System Settings", fontWeight = FontWeight.Bold)
+                    OutlinedTextField(
+                        value = referralBaseUrl,
+                        onValueChange = { referralBaseUrl = it },
+                        label = { Text("Base Referral Link (Web / Deep Link)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Button(
+                        onClick = { onSaveConfig("referral_base_url", referralBaseUrl) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                    ) {
+                        Text("Save Referral Base URL", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // COMMUNITY & NOTICES CARDS
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1168,21 +1605,19 @@ fun AdminLinksAndAuditTab(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Rates & Platform Notices", fontWeight = FontWeight.Bold)
-                    OutlinedTextField(value = pointsPerBdt, onValueChange = { pointsPerBdt = it }, label = { Text("Coins per 1 BDT") }, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = minWithdrawCoins, onValueChange = { minWithdrawCoins = it }, label = { Text("Min Cashout Coins") }, modifier = Modifier.fillMaxWidth())
+                    Text("Dashboard Announcements & Notices", fontWeight = FontWeight.Bold)
                     OutlinedTextField(value = noticeEn, onValueChange = { noticeEn = it }, label = { Text("Notice (English)") }, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = noticeBn, onValueChange = { noticeBn = it }, label = { Text("Notice (বাংলা)") }, modifier = Modifier.fillMaxWidth())
                     Button(
-                        onClick = { onSaveRates(pointsPerBdt, minWithdrawCoins, noticeEn, noticeBn) },
+                        onClick = { onSaveRates("100", minWithdrawBdt, noticeEn, noticeBn) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = GoldAccent, contentColor = Color.Black)
                     ) {
-                        Text("Save Rates & Notices")
+                        Text("Save Announcements")
                     }
                 }
             }

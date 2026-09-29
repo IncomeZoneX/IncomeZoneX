@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -150,6 +151,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         announcements.count { it.id !in readIds }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    // Income Summary Breakdowns (BDT)
+    val totalIncomeBdt: StateFlow<Double> = userSubmissions.map { list ->
+        list.filter { it.status == "APPROVED" }.sumOf { it.finalAmount }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val socialIncomeBdt: StateFlow<Double> = userSubmissions.map { list ->
+        list.filter { it.status == "APPROVED" && it.groupId == 1L }.sumOf { it.finalAmount }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val textSellIncomeBdt: StateFlow<Double> = userSubmissions.map { list ->
+        list.filter { it.status == "APPROVED" && it.groupId == 2L }.sumOf { it.finalAmount }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val vipIncomeBdt: StateFlow<Double> = userSubmissions.map { list ->
+        list.filter { it.status == "APPROVED" && it.groupId == 3L }.sumOf { it.finalAmount }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val isMaintenanceActive: StateFlow<Boolean> = appConfigs.map { configs ->
+        configs["maintenance_mode_enabled"] == "true"
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     // Admin Data
     val allWithdrawals: StateFlow<List<WithdrawalEntity>> = rewardRepository.getAllWithdrawals()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -180,6 +202,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             AppDatabase.populateDefaultData(db)
             refreshTaskStates()
+            rewardRepository.cleanOldApprovedSubmissions(db.taskSubmissionDao())
         }
     }
 
@@ -312,7 +335,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             preferencesManager.recordCheckIn(today, newStreak)
             _checkInStreak.value = newStreak
             _isCheckedInToday.value = true
-            showMessage("Claimed $bonusCoins coins for Day $newStreak!")
+            showMessage("Claimed ৳$bonusCoins for Day $newStreak!")
         }
     }
 
@@ -335,7 +358,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 titleEn = "Lucky Spin Reward",
                 titleBn = "লাকি স্পিন রিওয়ার্ড"
             )
-            showMessage("You won $wonCoins coins from Lucky Spin!")
+            showMessage("You won ৳$wonCoins from Lucky Spin!")
         }
     }
 
@@ -358,7 +381,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 titleEn = "Scratch Card Bonus",
                 titleBn = "স্ক্র্যাচ কার্ড বোনাস"
             )
-            showMessage("Added $wonCoins coins from Scratch Card!")
+            showMessage("Added ৳$wonCoins from Scratch Card!")
         }
     }
 
@@ -374,7 +397,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     titleEn = "Speed Math Quiz Reward ($correctCount correct)",
                     titleBn = "স্পীড ম্যাথ কুইজ রিওয়ার্ড ($correctCount টি সঠিক)"
                 )
-                showMessage("Earned $totalCoins coins from quiz challenge!")
+                showMessage("Earned ৳$totalCoins from quiz challenge!")
             }
         }
     }
@@ -389,7 +412,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 titleEn = "Educational Article Read Task",
                 titleBn = "শিক্ষণীয় আর্টিকেল রিডিং টাস্ক"
             )
-            showMessage("Earned $coins coins for reading!")
+            showMessage("Earned ৳$coins for reading!")
         }
     }
 
@@ -403,7 +426,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 titleEn = "Joined $taskName",
                 titleBn = "$taskName এ যুক্ত হওয়ার রিওয়ার্ড"
             )
-            showMessage("Bonus $coins coins credited for $taskName!")
+            showMessage("Bonus ৳$coins credited for $taskName!")
         }
     }
 
@@ -412,7 +435,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val user = currentUser.value ?: return@launch
             val result = userRepository.applyReferralCode(user.id, code)
             result.onSuccess { bonus ->
-                showMessage("Referral code applied! $bonus coins added.")
+                showMessage("Referral code applied! ৳$bonus bonus added.")
             }.onFailure { err ->
                 showMessage(err.message ?: "Failed to apply code", isError = true)
             }
@@ -427,34 +450,102 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             val user = currentUser.value ?: return@launch
-            val pointsPerBdt = appConfigs.value["points_per_bdt"]?.toDoubleOrNull() ?: 100.0
-            val minCoins = appConfigs.value["min_withdraw_coins"]?.toLongOrNull() ?: 2000L
+            val minBdt = appConfigs.value["min_withdraw_bdt"]?.toLongOrNull() ?: 50L
+            val feePercent = appConfigs.value["withdraw_charge_percent"]?.toDoubleOrNull() ?: 5.0
 
-            if (coins < minCoins) {
-                showMessage("Minimum withdrawal is $minCoins coins", isError = true)
+            if (coins < minBdt) {
+                showMessage("Minimum withdrawal is ৳$minBdt", isError = true)
                 return@launch
             }
 
             if (user.coins < coins) {
-                showMessage("Insufficient balance! You have ${user.coins} coins.", isError = true)
+                showMessage("Insufficient balance! You have ৳${user.coins}.", isError = true)
                 return@launch
             }
 
-            val bdtAmount = coins / pointsPerBdt
             val result = rewardRepository.requestWithdrawal(
                 userId = user.id,
                 method = method,
                 accountNumber = accountNumber,
-                coins = coins,
-                bdtAmount = bdtAmount
+                amountBdt = coins,
+                feePercent = feePercent
             )
 
             result.onSuccess {
-                showMessage("Cashout request submitted for ৳${String.format(Locale.US, "%.1f", bdtAmount)} via $method")
+                showMessage("Withdrawal request submitted for ৳$coins via $method. Fee: $feePercent%")
                 onSuccess()
             }.onFailure {
                 showMessage(it.message ?: "Withdrawal failed", isError = true)
             }
+        }
+    }
+
+    fun submitDeposit(
+        method: String,
+        senderNumber: String,
+        trxId: String,
+        amountBdt: Double,
+        reason: String,
+        onSuccess: () -> Unit
+    ) {
+        viewModelScope.launch {
+            val user = currentUser.value ?: return@launch
+            if (trxId.isBlank() || senderNumber.isBlank() || amountBdt <= 0) {
+                showMessage("Please fill all deposit details correctly", isError = true)
+                return@launch
+            }
+            val result = rewardRepository.submitDepositRequest(
+                userId = user.id,
+                method = method,
+                senderNumber = senderNumber.trim(),
+                trxId = trxId.trim(),
+                amountBdt = amountBdt,
+                reason = reason
+            )
+            result.onSuccess {
+                showMessage("Deposit request submitted successfully!")
+                onSuccess()
+            }.onFailure {
+                showMessage(it.message ?: "Deposit submission failed", isError = true)
+            }
+        }
+    }
+
+    fun updateProfile(
+        name: String,
+        phone: String,
+        newPassword: String?,
+        onSuccess: () -> Unit
+    ) {
+        viewModelScope.launch {
+            val user = currentUser.value ?: return@launch
+            if (name.isBlank()) {
+                showMessage("Name cannot be empty", isError = true)
+                return@launch
+            }
+            val res = userRepository.updateProfile(user.id, name, phone, newPassword)
+            res.onSuccess {
+                showMessage("Profile updated successfully!")
+                onSuccess()
+            }.onFailure {
+                showMessage(it.message ?: "Failed to update profile", isError = true)
+            }
+        }
+    }
+
+    fun adminUpdateSettings(settings: Map<String, String>) {
+        viewModelScope.launch {
+            settings.forEach { (key, value) ->
+                configRepository.setConfig(key, value)
+            }
+            showMessage("System settings saved successfully!")
+        }
+    }
+
+    fun adminActivateAccount(userId: Long) {
+        viewModelScope.launch {
+            userRepository.activateAccount(userId, "Admin")
+            showMessage("Account activated successfully!")
         }
     }
 
@@ -485,6 +576,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             showMessage("Invalid Admin PIN! Default is 1234", isError = true)
         }
         return matched
+    }
+
+    fun adminChangePin(currentPin: String, newPin: String, confirmPin: String): Boolean {
+        val realPin = appConfigs.value["admin_pin"] ?: "1234"
+        if (currentPin.trim() != realPin.trim()) {
+            showMessage("Current PIN is incorrect!", isError = true)
+            return false
+        }
+        if (newPin.trim().length < 4) {
+            showMessage("New PIN must be at least 4 digits!", isError = true)
+            return false
+        }
+        if (newPin.trim() != confirmPin.trim()) {
+            showMessage("New PIN and Confirm PIN do not match!", isError = true)
+            return false
+        }
+        viewModelScope.launch {
+            configRepository.setConfig("admin_pin", newPin.trim(), "Admin Panel Access PIN")
+            showMessage("Admin Password/PIN changed successfully!")
+        }
+        return true
     }
 
     fun adminSaveGroup(group: TaskGroupEntity) {
@@ -551,7 +663,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun adminAdjustBalance(userId: Long, newCoins: Long, reason: String) {
         viewModelScope.launch {
             userRepository.adminAdjustBalance(userId, newCoins, reason, "Admin")
-            showMessage("User balance updated to $newCoins coins")
+            showMessage("User balance updated to ৳$newCoins")
         }
     }
 
@@ -573,6 +685,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             configRepository.setFeatureToggle(key, isEnabled)
             showMessage("Feature '$key' updated to ${if (isEnabled) "ON" else "OFF"}")
+        }
+    }
+
+    fun setAppConfig(key: String, value: String, description: String = "") {
+        viewModelScope.launch {
+            configRepository.setConfig(key, value.trim(), description)
+            showMessage("Configuration updated successfully!")
+        }
+    }
+
+    fun saveMultipleConfigs(configsToSave: Map<String, String>) {
+        viewModelScope.launch {
+            configsToSave.forEach { (k, v) ->
+                configRepository.setConfig(k, v.trim(), "")
+            }
+            showMessage("All configurations saved successfully!")
         }
     }
 
@@ -627,7 +755,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             result.onSuccess { user ->
                 preferencesManager.setLoggedInUserId(user.id)
                 refreshTaskStates()
-                showMessage("Account created! 100 welcome coins added.")
+                showMessage("Account created! ৳100 welcome bonus added.")
                 onSuccess()
             }.onFailure {
                 showMessage(it.message ?: "Registration failed", isError = true)

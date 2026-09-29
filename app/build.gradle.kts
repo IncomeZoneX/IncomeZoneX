@@ -8,12 +8,28 @@ plugins {
   alias(libs.plugins.google.services)
 }
 
+val isAdminBuild = project.hasProperty("adminBuild") && project.property("adminBuild") == "true"
+
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.takareward.kxvq"
+    if (isAdminBuild) {
+      applicationId = "com.aistudio.incomezonex.admin"
+      manifestPlaceholders["appLabel"] = "IncomeZoneX Admin"
+      manifestPlaceholders["isMemberExported"] = "false"
+      manifestPlaceholders["isAdminExported"] = "true"
+      manifestPlaceholders["memberLauncherCategory"] = "android.intent.category.DEFAULT"
+      manifestPlaceholders["adminLauncherCategory"] = "android.intent.category.LAUNCHER"
+    } else {
+      applicationId = "com.aistudio.takareward.kxvq"
+      manifestPlaceholders["appLabel"] = "IncomeZoneX"
+      manifestPlaceholders["isMemberExported"] = "true"
+      manifestPlaceholders["isAdminExported"] = "false"
+      manifestPlaceholders["memberLauncherCategory"] = "android.intent.category.LAUNCHER"
+      manifestPlaceholders["adminLauncherCategory"] = "android.intent.category.DEFAULT"
+    }
     minSdk = 24
     targetSdk = 36
     versionCode = 1
@@ -26,9 +42,9 @@ android {
     create("release") {
       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
       storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
+      storePassword = System.getenv("STORE_PASSWORD") ?: "incomezonex2026"
       keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      keyPassword = System.getenv("KEY_PASSWORD") ?: "incomezonex2026"
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
@@ -99,7 +115,8 @@ dependencies {
   implementation(libs.androidx.room.runtime)
   implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
+  implementation(libs.google.generativeai)
+  // implementation(libs.firebase.ai)
   // Uncomment to use Firestore:
   // implementation(libs.firebase.firestore)
 
@@ -109,8 +126,8 @@ dependencies {
   // implementation(libs.androidx.credentials)
   // implementation(libs.androidx.credentials.play.services)
   // implementation(libs.googleid)
-  implementation(libs.firebase.appcheck.recaptcha)
-  implementation(libs.firebase.appcheck.debug)
+  // implementation(libs.firebase.appcheck.recaptcha)
+  // implementation(libs.firebase.appcheck.debug)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.logging.interceptor)

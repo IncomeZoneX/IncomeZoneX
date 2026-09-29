@@ -18,6 +18,7 @@ data class UserEntity(
     val totalWithdrawn: Long = 0,
     val isAdmin: Boolean = false,
     val membershipTier: String = "FREE", // "FREE" or "PREMIUM"
+    val isActivated: Boolean = true, // Account activation status
     val premiumExpiresAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis()
 )
@@ -103,6 +104,7 @@ data class ProductTaskEntity(
     val accessRule: String = "BOTH", // "FREE", "PREMIUM", "BOTH", "DISABLED"
     val displayOrder: Int = 0,
     val isEnabled: Boolean = true,
+    val maintenanceNotice: String = "",
     val fieldsConfigJson: String = "[]" // JSON representation of List<CustomFieldConfig>
 )
 

@@ -90,8 +90,8 @@ import com.example.data.local.LanguageCode
 import com.example.data.local.ThemeMode
 import com.example.data.local.entity.ProductTaskEntity
 import com.example.data.local.entity.TaskGroupEntity
+import com.example.ui.components.MaintenanceScreen
 import com.example.ui.localization.tr
-import com.example.ui.screens.admin.AdminPanelScreen
 import com.example.ui.screens.auth.AuthScreen
 import com.example.ui.screens.community.CommunityScreen
 import com.example.ui.screens.dashboard.DashboardScreen
@@ -126,7 +126,6 @@ enum class Screen {
     SCRATCH,
     QUIZ,
     REFERRAL,
-    ADMIN,
     AUTH
 }
 
@@ -180,7 +179,10 @@ fun MainAppContent(
     val enabledGroups by viewModel.enabledTaskGroups.collectAsState()
     val unreadNotifications by viewModel.unreadCount.collectAsState()
     val configs by viewModel.appConfigs.collectAsState()
-    val upgradeCostCoins = configs["premium_upgrade_cost_coins"]?.toLongOrNull() ?: 3000L
+    val isMaintenanceActive by viewModel.isMaintenanceActive.collectAsState()
+    val activationFeeBdt = configs["account_activation_fee_bdt"]?.toDoubleOrNull() ?: 100.0
+    val proPercent = configs["pro_activation_percent"]?.toDoubleOrNull() ?: 150.0
+    val proRequiredFee = (activationFeeBdt * proPercent / 100.0)
 
     var selectedGroup by remember { mutableStateOf<TaskGroupEntity?>(null) }
     var selectedProduct by remember { mutableStateOf<ProductTaskEntity?>(null) }
@@ -282,7 +284,7 @@ fun MainAppContent(
                                 }
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "${user?.coins ?: 0} Coins",
+                                    text = "৳ ${user?.coins ?: 0}",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = GoldAccent
@@ -485,23 +487,21 @@ fun MainAppContent(
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
 
-                    NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = GoldAccent) },
-                        label = { Text("nav_admin".tr(lang)) },
-                        selected = currentScreen == Screen.ADMIN,
-                        onClick = {
-                            scope.launch { drawerState.close() }
-                            navigateTo(Screen.ADMIN)
-                        },
-                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                    )
-
                     Spacer(modifier = Modifier.height(24.dp))
                 }
             }
         }
     ) {
-        Scaffold(
+        if (isMaintenanceActive) {
+            MaintenanceScreen(
+                title = if (lang == LanguageCode.BN) configs["maintenance_title_bn"] ?: "" else configs["maintenance_title_en"] ?: "",
+                message = if (lang == LanguageCode.BN) configs["maintenance_message_bn"] ?: "" else configs["maintenance_message_en"] ?: "",
+                lang = lang,
+                telegramUrl = configs["telegram_group_url"] ?: "https://t.me/takareward_support",
+                onRefresh = { viewModel.refreshTaskStates() }
+            )
+        } else {
+            Scaffold(
             modifier = Modifier.fillMaxSize(),
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
@@ -599,7 +599,6 @@ fun MainAppContent(
 
                     Screen.PROFILE -> ProfileScreen(
                         viewModel = viewModel,
-                        onNavigateToAdmin = { navigateTo(Screen.ADMIN) },
                         onNavigateToAuth = { navigateTo(Screen.AUTH) }
                     )
 
@@ -643,6 +642,9 @@ fun MainAppContent(
                                     popBack()
                                     navigateTo(Screen.SUBMISSIONS)
                                 },
+                                onNavigateToDeposit = {
+                                    navigateTo(Screen.WALLET)
+                                },
                                 onBack = { popBack() }
                             )
                         } else {
@@ -670,11 +672,6 @@ fun MainAppContent(
                         onBack = { popBack() }
                     )
 
-                    Screen.ADMIN -> AdminPanelScreen(
-                        viewModel = viewModel,
-                        onBack = { popBack() }
-                    )
-
                     Screen.AUTH -> AuthScreen(
                         viewModel = viewModel,
                         onSuccessAuth = { popBack() },
@@ -684,17 +681,18 @@ fun MainAppContent(
             }
         }
     }
+}
 
     // Upgrade to Premium Dialog
     if (showUpgradeDialog) {
         AlertDialog(
             onDismissRequest = { showUpgradeDialog = false },
-            title = { Text("⭐ Upgrade to Premium Membership") },
+            title = { Text("⭐ Upgrade to Pro Membership") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Unlock high-rate VIP tasks, exclusive sell categories, and priority fast payouts.")
-                    Text("Upgrade Requirement: $upgradeCostCoins Coins (≈ ৳${upgradeCostCoins / 100})", fontWeight = FontWeight.Bold, color = GoldAccent)
-                    Text("Your Balance: ${user?.coins ?: 0} Coins")
+                    Text("Upgrade Requirement: ৳${proRequiredFee.toInt()} (${proPercent.toInt()}% of base activation)", fontWeight = FontWeight.Bold, color = GoldAccent)
+                    Text("Your Balance: ৳${user?.coins ?: 0}")
                 }
             },
             confirmButton = {

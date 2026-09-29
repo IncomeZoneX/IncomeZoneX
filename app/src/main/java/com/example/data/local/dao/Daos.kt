@@ -56,6 +56,12 @@ interface UserDao {
 
     @Query("UPDATE users SET membershipTier = :tier WHERE id = :userId")
     suspend fun updateMembershipTier(userId: Long, tier: String)
+
+    @Query("UPDATE users SET name = :name, phone = :phone, passwordHash = :passwordHash WHERE id = :userId")
+    suspend fun updateProfile(userId: Long, name: String, phone: String, passwordHash: String)
+
+    @Query("UPDATE users SET isActivated = :isActivated WHERE id = :userId")
+    suspend fun updateActivationStatus(userId: Long, isActivated: Boolean)
 }
 
 @Dao
@@ -129,6 +135,9 @@ interface TaskGroupDao {
     @Query("SELECT * FROM task_groups WHERE id = :groupId LIMIT 1")
     suspend fun getGroupById(groupId: Long): TaskGroupEntity?
 
+    @Query("SELECT COUNT(*) FROM task_groups")
+    suspend fun getGroupCount(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGroup(group: TaskGroupEntity): Long
 
@@ -187,6 +196,9 @@ interface TaskSubmissionDao {
         processedAt: Long,
         processedBy: String
     )
+
+    @Query("DELETE FROM task_submissions WHERE status = 'APPROVED' AND processedAt IS NOT NULL AND processedAt < :cutoffTimestamp")
+    suspend fun deleteApprovedSubmissionsOlderThan(cutoffTimestamp: Long): Int
 }
 
 @Dao

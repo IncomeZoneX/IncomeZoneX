@@ -293,7 +293,7 @@ fun DashboardScreen(
                     if (quizEnabled) {
                         QuickEarnGridItem(
                             title = "quiz_title".tr(lang),
-                            sub = "+125 Coins",
+                            sub = "+৳5",
                             icon = Icons.Default.Quiz,
                             accentColor = Color(0xFF3B82F6),
                             modifier = Modifier.weight(1f),
@@ -304,7 +304,7 @@ fun DashboardScreen(
 
                     QuickEarnGridItem(
                         title = "refer_btn".tr(lang),
-                        sub = "+500 Each",
+                        sub = "+৳50 Each",
                         icon = Icons.Default.Share,
                         accentColor = Color(0xFF8B5CF6),
                         modifier = Modifier.weight(1f),
@@ -352,7 +352,7 @@ fun DashboardScreen(
                                     .padding(horizontal = 8.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = "+400 Coins",
+                                    text = "+৳10 Bonus",
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                     color = GoldAccent
                                 )
