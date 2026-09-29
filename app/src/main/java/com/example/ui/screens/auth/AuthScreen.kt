@@ -37,6 +37,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -68,12 +69,20 @@ fun AuthScreen(
     val lang by viewModel.currentLanguage.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
 
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Sign In, 1: Register
+    val pendingRef by viewModel.pendingReferralCode.collectAsState()
+    var selectedTab by remember { mutableIntStateOf(if (!pendingRef.isNullOrBlank()) 1 else 0) } // 0: Sign In, 1: Register
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
-    var referralCode by remember { mutableStateOf("") }
+    var referralCode by remember { mutableStateOf(pendingRef ?: "") }
+
+    LaunchedEffect(pendingRef) {
+        if (!pendingRef.isNullOrBlank()) {
+            referralCode = pendingRef ?: ""
+            selectedTab = 1
+        }
+    }
 
     Scaffold(
         topBar = {

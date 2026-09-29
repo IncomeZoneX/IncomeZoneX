@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Quiz
@@ -68,6 +69,7 @@ import com.example.ui.localization.tr
 import com.example.ui.screens.community.launchFacebook
 import com.example.ui.screens.community.launchTelegram
 import com.example.ui.theme.EmeraldPrimary
+import com.example.ui.theme.ErrorRed
 import com.example.ui.theme.FacebookBlue
 import com.example.ui.theme.GoldAccent
 import com.example.ui.theme.TelegramBlue
@@ -138,6 +140,45 @@ fun DashboardScreen(
             // Notice Announcement Banner
             if (announcementsEnabled && noticeText.isNotBlank()) {
                 NoticeBanner(text = noticeText, lang = lang)
+            }
+
+            // Inactive Account Warning & Activation Action
+            if (user != null && !user!!.isActivated) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .testTag("dashboard_activation_alert_card"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = ErrorRed.copy(alpha = 0.12f))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "account_inactive".tr(lang),
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = ErrorRed
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "activation_required_msg".tr(lang),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Button(
+                            onClick = onNavigateToWallet,
+                            modifier = Modifier.fillMaxWidth().height(42.dp).testTag("dashboard_activate_btn"),
+                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary, contentColor = Color.White),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("activate_account_now".tr(lang), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
 
             // Balance Hero Card with Membership Tier & Upgrade action

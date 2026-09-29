@@ -119,6 +119,7 @@ object Strings {
 
         // Wallet Full Redesign
         "wallet_title" to Trans("Wallet & Finances", "ওয়ালেট ও লেনদেন"),
+        "available_balance" to Trans("Available Balance", "উত্তোলনযোগ্য ব্যালেন্স"),
         "available_coins" to Trans("Available Balance", "উত্তোলনযোগ্য ব্যালেন্স"),
         "current_rate" to Trans("Currency", "মুদ্রা"),
         "rate_value" to Trans("Bangladeshi Taka (BDT)", "বাংলাদেশি টাকা (৳)"),
@@ -127,6 +128,8 @@ object Strings {
         "deposit_money" to Trans("Deposit / Add Funds", "ডিপোজিট / ফান্ড যোগ"),
         "select_method" to Trans("Select Payment Method", "পেমেন্ট মাধ্যম বেছে নিন"),
         "account_number" to Trans("Account / Mobile Number", "একাউন্ট / মোবাইল নম্বর"),
+        "withdraw_amount_bdt" to Trans("Withdraw Amount (৳)", "কত টাকা তুলতে চান (৳)"),
+        "deposit_amount_bdt" to Trans("Deposit Amount (৳)", "কত টাকা জমা দিতে চান (৳)"),
         "withdraw_amount_coins" to Trans("Withdraw Amount (৳)", "কত টাকা তুলতে চান (৳)"),
         "amount_in_bdt" to Trans("Net Payout", "আপনি পাবেন"),
         "submit_withdraw" to Trans("Submit Withdrawal", "উইথড্র কনফার্ম করুন"),

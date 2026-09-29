@@ -105,6 +105,10 @@ data class ProductTaskEntity(
     val displayOrder: Int = 0,
     val isEnabled: Boolean = true,
     val maintenanceNotice: String = "",
+    val maintenanceNoticeBn: String = "",
+    val upcomingNotice: String = "",
+    val scheduleStart: Long = 0L,
+    val scheduleEnd: Long = 0L,
     val fieldsConfigJson: String = "[]" // JSON representation of List<CustomFieldConfig>
 )
 

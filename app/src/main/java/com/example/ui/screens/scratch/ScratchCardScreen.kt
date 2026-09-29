@@ -177,7 +177,7 @@ fun ScratchCardScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "+$rewardCoins",
+                            text = "+৳$rewardCoins",
                             style = MaterialTheme.typography.headlineLarge.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 38.sp
@@ -185,7 +185,7 @@ fun ScratchCardScreen(
                             color = Color.White
                         )
                         Text(
-                            text = "coins".tr(lang),
+                            text = "BDT (৳)",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = GoldAccent
                         )

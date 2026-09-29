@@ -26,10 +26,12 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -39,6 +41,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -61,6 +64,7 @@ import com.example.data.local.LanguageCode
 import com.example.ui.components.TakaTopBar
 import com.example.ui.localization.tr
 import com.example.ui.theme.EmeraldPrimary
+import com.example.ui.theme.ErrorRed
 import com.example.ui.theme.GoldAccent
 import kotlinx.coroutines.delay
 
@@ -74,6 +78,7 @@ fun TasksScreen(
     onNavigateToReferral: () -> Unit,
     onNavigateToGroup: ((com.example.data.local.entity.TaskGroupEntity) -> Unit)? = null,
     onNavigateToSubmissions: (() -> Unit)? = null,
+    onNavigateToDeposit: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null
 ) {
     val lang by viewModel.currentLanguage.collectAsState()
@@ -81,10 +86,22 @@ fun TasksScreen(
     val user by viewModel.currentUser.collectAsState()
     val enabledGroups by viewModel.enabledTaskGroups.collectAsState()
 
+    var showActivationDialog by remember { mutableStateOf(false) }
+
     // Read Article Task State
     var isReadingArticle by remember { mutableStateOf(false) }
     var readingTimeLeft by remember { mutableIntStateOf(15) }
     var articleFinished by remember { mutableStateOf(false) }
+
+    val isUserActivated = user?.isActivated ?: true
+
+    fun requireActivationOr(action: () -> Unit) {
+        if (!isUserActivated) {
+            showActivationDialog = true
+        } else {
+            action()
+        }
+    }
 
     LaunchedEffect(isReadingArticle) {
         if (isReadingArticle && !articleFinished) {
@@ -120,6 +137,44 @@ fun TasksScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Account Inactive Alert Banner
+            if (!isUserActivated) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().testTag("tasks_activation_required_card"),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = ErrorRed.copy(alpha = 0.12f))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Lock, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "account_inactive".tr(lang),
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = ErrorRed
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "activation_required_msg".tr(lang),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Button(
+                                onClick = { onNavigateToDeposit?.invoke() },
+                                modifier = Modifier.fillMaxWidth().height(42.dp).testTag("tasks_activate_btn"),
+                                colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary, contentColor = Color.White),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("activate_account_now".tr(lang), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+
             // My Submissions button
             if (onNavigateToSubmissions != null) {
                 item {
@@ -153,7 +208,7 @@ fun TasksScreen(
                         rewardText = group.accessRule,
                         buttonText = "Explore Group",
                         testTag = "open_group_${group.id}",
-                        onClick = { onNavigateToGroup(group) }
+                        onClick = { requireActivationOr { onNavigateToGroup(group) } }
                     )
                 }
             }
@@ -165,10 +220,10 @@ fun TasksScreen(
                     desc = "spin_desc".tr(lang),
                     icon = Icons.Default.Casino,
                     accentColor = GoldAccent,
-                    rewardText = "Up to +500 Coins",
+                    rewardText = "Up to +৳50",
                     buttonText = "Spin Now",
                     testTag = "task_open_spin",
-                    onClick = onNavigateToSpin
+                    onClick = { requireActivationOr { onNavigateToSpin() } }
                 )
             }
 
@@ -179,10 +234,10 @@ fun TasksScreen(
                     desc = "scratch_desc".tr(lang),
                     icon = Icons.Default.CardGiftcard,
                     accentColor = EmeraldPrimary,
-                    rewardText = "Up to +120 Coins",
+                    rewardText = "Up to +৳30",
                     buttonText = "Scratch Now",
                     testTag = "task_open_scratch",
-                    onClick = onNavigateToScratch
+                    onClick = { requireActivationOr { onNavigateToScratch() } }
                 )
             }
 
@@ -193,10 +248,10 @@ fun TasksScreen(
                     desc = "math_quiz_desc".tr(lang),
                     icon = Icons.Default.Quiz,
                     accentColor = Color(0xFF3B82F6),
-                    rewardText = "+125 Coins / 5 Qs",
+                    rewardText = "+৳25 / 5 Qs",
                     buttonText = "Start Quiz",
                     testTag = "task_open_quiz",
-                    onClick = onNavigateToQuiz
+                    onClick = { requireActivationOr { onNavigateToQuiz() } }
                 )
             }
 
@@ -246,7 +301,7 @@ fun TasksScreen(
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Text(
-                                    text = "+30 Coins",
+                                    text = "+৳30",
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                     color = GoldAccent
                                 )
@@ -256,7 +311,7 @@ fun TasksScreen(
                         if (isReadingArticle) {
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = "Reading tip: Complete daily streaks and share referral codes on social media for high daily commissions!",
+                                text = "Reading tip: Share your referral link with friends for high commissions!",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -278,9 +333,11 @@ fun TasksScreen(
 
                         Button(
                             onClick = {
-                                if (!isReadingArticle) {
-                                    isReadingArticle = true
-                                    articleFinished = false
+                                requireActivationOr {
+                                    if (!isReadingArticle) {
+                                        isReadingArticle = true
+                                        articleFinished = false
+                                    }
                                 }
                             },
                             modifier = Modifier
@@ -292,7 +349,7 @@ fun TasksScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6))
                         ) {
                             Text(
-                                text = if (isReadingArticle) "Verifying reading..." else if (articleFinished) "Read Again (+30)" else "Start Reading (15s)",
+                                text = if (isReadingArticle) "Verifying reading..." else if (articleFinished) "Read Again (+৳30)" else "Start Reading (15s)",
                                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                             )
                         }
@@ -304,16 +361,41 @@ fun TasksScreen(
             item {
                 TaskActionCard(
                     title = "social_tasks".tr(lang),
-                    desc = "Join our official Telegram and Facebook channels to claim +600 total bonus coins!",
+                    desc = "Join our official Telegram and Facebook channels to claim +৳600 total bonus!",
                     icon = Icons.Default.Share,
                     accentColor = Color(0xFF229ED9),
-                    rewardText = "+600 Coins",
+                    rewardText = "+৳600",
                     buttonText = "View Social Tasks",
                     testTag = "task_open_community",
-                    onClick = onNavigateToCommunity
+                    onClick = { requireActivationOr { onNavigateToCommunity() } }
                 )
             }
         }
+    }
+
+    if (showActivationDialog) {
+        AlertDialog(
+            onDismissRequest = { showActivationDialog = false },
+            icon = { Icon(Icons.Default.Lock, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(36.dp)) },
+            title = { Text(text = "account_inactive".tr(lang), fontWeight = FontWeight.Bold) },
+            text = { Text(text = "activation_required_msg".tr(lang)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showActivationDialog = false
+                        onNavigateToDeposit?.invoke()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                ) {
+                    Text(text = "activate_account_now".tr(lang))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showActivationDialog = false }) {
+                    Text(text = "cancel".tr(lang))
+                }
+            }
+        )
     }
 }
 

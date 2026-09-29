@@ -317,7 +317,8 @@ fun AdminPanelScreen(
                     3 -> AdminMembersTab(
                         users = allUsers,
                         onSetTier = { u, tier -> viewModel.adminSetMembership(u.id, tier) },
-                        onAdjustBalance = { u -> adjustingUser = u }
+                        onAdjustBalance = { u -> adjustingUser = u },
+                        onToggleActivation = { u -> viewModel.adminSetUserActivation(u.id, !u.isActivated) }
                     )
 
                     // TAB 4: CASHOUTS
@@ -635,6 +636,10 @@ fun AdminPanelScreen(
         var selectedGroupId by remember { mutableStateOf(editingProduct?.groupId ?: (allGroups.firstOrNull()?.id ?: 1L)) }
         var isEnabled by remember { mutableStateOf(editingProduct?.isEnabled ?: true) }
         var maintenanceNotice by remember { mutableStateOf(editingProduct?.maintenanceNotice ?: "") }
+        var maintenanceNoticeBn by remember { mutableStateOf(editingProduct?.maintenanceNoticeBn ?: "") }
+        var upcomingNotice by remember { mutableStateOf(editingProduct?.upcomingNotice ?: "") }
+        var scheduleStartStr by remember { mutableStateOf(if (editingProduct?.scheduleStart != null && editingProduct!!.scheduleStart > 0) SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date(editingProduct!!.scheduleStart)) else "") }
+        var scheduleEndStr by remember { mutableStateOf(if (editingProduct?.scheduleEnd != null && editingProduct!!.scheduleEnd > 0) SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date(editingProduct!!.scheduleEnd)) else "") }
 
         // Fields config builder list
         val fieldsList = remember {
@@ -731,10 +736,41 @@ fun AdminPanelScreen(
                                 OutlinedTextField(
                                     value = maintenanceNotice,
                                     onValueChange = { maintenanceNotice = it },
-                                    label = { Text("Offline / Maintenance Notice (Optional)") },
-                                    placeholder = { Text("Shown to users if task is turned OFF") },
+                                    label = { Text("Offline / Maintenance Notice (EN)") },
+                                    placeholder = { Text("Shown to users if task is offline") },
                                     modifier = Modifier.fillMaxWidth()
                                 )
+                                OutlinedTextField(
+                                    value = maintenanceNoticeBn,
+                                    onValueChange = { maintenanceNoticeBn = it },
+                                    label = { Text("Offline / Maintenance Notice (বাংলা)") },
+                                    placeholder = { Text("ব্যবহারকারীকে দেখানোর বার্তা") },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                OutlinedTextField(
+                                    value = upcomingNotice,
+                                    onValueChange = { upcomingNotice = it },
+                                    label = { Text("Upcoming / Restart Message (Optional)") },
+                                    placeholder = { Text("e.g. Will restart tonight at 9 PM") },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedTextField(
+                                        value = scheduleStartStr,
+                                        onValueChange = { scheduleStartStr = it },
+                                        label = { Text("Start Time (YYYY-MM-DD HH:mm)") },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    OutlinedTextField(
+                                        value = scheduleEndStr,
+                                        onValueChange = { scheduleEndStr = it },
+                                        label = { Text("End Time (YYYY-MM-DD HH:mm)") },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
                             }
                         }
                     }
@@ -802,6 +838,14 @@ fun AdminPanelScreen(
                         if (titleEn.isNotBlank()) {
                             val rate = rateStr.toDoubleOrNull() ?: 20.0
                             val jsonFields = JsonUtils.serializeFieldsConfig(fieldsList.toList())
+                            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
+                            val sStart = if (scheduleStartStr.isNotBlank()) {
+                                scheduleStartStr.toLongOrNull() ?: try { sdf.parse(scheduleStartStr.trim())?.time ?: 0L } catch (_: Exception) { 0L }
+                            } else 0L
+                            val sEnd = if (scheduleEndStr.isNotBlank()) {
+                                scheduleEndStr.toLongOrNull() ?: try { sdf.parse(scheduleEndStr.trim())?.time ?: 0L } catch (_: Exception) { 0L }
+                            } else 0L
+
                             val product = ProductTaskEntity(
                                 id = editingProduct?.id ?: 0L,
                                 groupId = selectedGroupId,
@@ -815,6 +859,10 @@ fun AdminPanelScreen(
                                 accessRule = accessRule,
                                 isEnabled = isEnabled,
                                 maintenanceNotice = maintenanceNotice.trim(),
+                                maintenanceNoticeBn = maintenanceNoticeBn.trim(),
+                                upcomingNotice = upcomingNotice.trim(),
+                                scheduleStart = sStart,
+                                scheduleEnd = sEnd,
                                 fieldsConfigJson = jsonFields
                             )
                             viewModel.adminSaveProduct(product)
@@ -1088,7 +1136,8 @@ fun AdminProductsTab(
 fun AdminMembersTab(
     users: List<UserEntity>,
     onSetTier: (UserEntity, String) -> Unit,
-    onAdjustBalance: (UserEntity) -> Unit
+    onAdjustBalance: (UserEntity) -> Unit,
+    onToggleActivation: (UserEntity) -> Unit
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         items(users) { u ->
@@ -1109,13 +1158,31 @@ fun AdminMembersTab(
                             Text(u.email, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
 
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(if (isPremium) GoldAccent else EmeraldPrimary.copy(alpha = 0.2f))
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Text(u.membershipTier, color = if (isPremium) Color.Black else EmeraldPrimary, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            // Activation Badge
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (u.isActivated) EmeraldPrimary.copy(alpha = 0.2f) else ErrorRed.copy(alpha = 0.2f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = if (u.isActivated) "ACTIVE" else "INACTIVE",
+                                    color = if (u.isActivated) EmeraldPrimary else ErrorRed,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                )
+                            }
+
+                            // Tier Badge
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (isPremium) GoldAccent else EmeraldPrimary.copy(alpha = 0.2f))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(u.membershipTier, color = if (isPremium) Color.Black else EmeraldPrimary, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                            }
                         }
                     }
 
@@ -1126,9 +1193,20 @@ fun AdminMembersTab(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Coins: ${u.coins} (৳${u.coins / 100})", fontWeight = FontWeight.Bold, color = GoldAccent)
+                        Text("Balance: ৳${u.coins}", fontWeight = FontWeight.Bold, color = EmeraldPrimary)
 
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Button(
+                                onClick = { onToggleActivation(u) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (u.isActivated) ErrorRed.copy(alpha = 0.15f) else EmeraldPrimary.copy(alpha = 0.15f),
+                                    contentColor = if (u.isActivated) ErrorRed else EmeraldPrimary
+                                ),
+                                modifier = Modifier.height(34.dp)
+                            ) {
+                                Text(if (u.isActivated) "Deactivate" else "Activate", fontSize = 10.sp)
+                            }
+
                             Button(
                                 onClick = { onSetTier(u, if (isPremium) "FREE" else "PREMIUM") },
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1142,7 +1220,7 @@ fun AdminMembersTab(
                                 colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
                                 modifier = Modifier.height(34.dp)
                             ) {
-                                Text("Coins +/-", fontSize = 10.sp)
+                                Text("Balance +/-", fontSize = 10.sp)
                             }
                         }
                     }
@@ -1694,11 +1772,6 @@ fun AdminWithdrawalRow(
                         text = "৳ ${String.format(Locale.US, "%.1f", item.amountCurrency)}",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
                         color = EmeraldPrimary
-                    )
-                    Text(
-                        text = "${item.coins} Coins",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Box(
                         modifier = Modifier

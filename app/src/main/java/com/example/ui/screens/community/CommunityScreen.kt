@@ -292,7 +292,7 @@ fun CommunityItemCard(
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = "+$bonusCoins Coins",
+                        text = "+৳$bonusCoins",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = GoldAccent
                     )

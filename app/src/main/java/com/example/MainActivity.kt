@@ -27,7 +27,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Check
@@ -133,9 +132,23 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val refCode = intent.data?.getQueryParameter("ref")
+        if (!refCode.isNullOrBlank()) {
+            viewModel.setPendingReferralCode(refCode)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val refCode = intent?.data?.getQueryParameter("ref")
+        if (!refCode.isNullOrBlank()) {
+            viewModel.setPendingReferralCode(refCode)
+        }
 
         setContent {
             val themeMode by viewModel.themeMode.collectAsState()
@@ -586,7 +599,8 @@ fun MainAppContent(
                             selectedGroup = g
                             navigateTo(Screen.GROUP_PRODUCTS)
                         },
-                        onNavigateToSubmissions = { navigateTo(Screen.SUBMISSIONS) }
+                        onNavigateToSubmissions = { navigateTo(Screen.SUBMISSIONS) },
+                        onNavigateToDeposit = { navigateTo(Screen.WALLET) }
                     )
 
                     Screen.WALLET -> WalletScreen(

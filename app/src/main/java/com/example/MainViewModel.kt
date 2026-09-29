@@ -169,7 +169,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
     val isMaintenanceActive: StateFlow<Boolean> = appConfigs.map { configs ->
-        configs["maintenance_mode_enabled"] == "true"
+        if (configs["maintenance_mode_enabled"] == "true") {
+            true
+        } else {
+            val startStr = configs["maintenance_start_time"]
+            val endStr = configs["maintenance_end_time"]
+            if (!startStr.isNullOrBlank() && !endStr.isNullOrBlank()) {
+                try {
+                    val now = System.currentTimeMillis()
+                    val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
+                    val sTime = startStr.toLongOrNull() ?: sdf.parse(startStr)?.time ?: 0L
+                    val eTime = endStr.toLongOrNull() ?: sdf.parse(endStr)?.time ?: 0L
+                    sTime > 0 && eTime > 0 && now in sTime..eTime
+                } catch (_: Exception) { false }
+            } else false
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     // Admin Data
@@ -197,6 +211,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isCheckedInToday = MutableStateFlow(false)
     val isCheckedInToday: StateFlow<Boolean> = _isCheckedInToday.asStateFlow()
+
+    private val _pendingReferralCode = MutableStateFlow<String?>(null)
+    val pendingReferralCode: StateFlow<String?> = _pendingReferralCode.asStateFlow()
+
+    fun setPendingReferralCode(code: String) {
+        val clean = code.trim().uppercase()
+        if (clean.isNotEmpty()) {
+            _pendingReferralCode.value = clean
+        }
+    }
 
     init {
         viewModelScope.launch {
@@ -250,6 +274,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun calculateProUpgradeCost(): Long {
+        val configs = appConfigs.value
+        val baseFee = configs["account_activation_fee_bdt"]?.toDoubleOrNull() ?: 100.0
+        val proPercent = configs["pro_activation_percent"]?.toDoubleOrNull() ?: 150.0
+        return (baseFee * proPercent / 100.0).toLong().coerceAtLeast(1L)
+    }
+
     // User Task Form Submission
     fun submitTaskForm(
         product: ProductTaskEntity,
@@ -259,6 +290,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             val user = currentUser.value ?: return@launch
+            if (!user.isActivated) {
+                showMessage("Account activation required! Please activate your account first.", isError = true)
+                return@launch
+            }
+
+            val isProTask = group.accessRule == "PREMIUM" || product.accessRule == "PREMIUM"
+            if (isProTask) {
+                val limit = appConfigs.value["pro_daily_task_limit"]?.toIntOrNull() ?: 10
+                val todayCount = productRepository.getTodayProTaskCount(user.id)
+                if (todayCount >= limit) {
+                    showMessage("Daily Pro task limit ($limit) reached for today! Try again tomorrow.", isError = true)
+                    return@launch
+                }
+            }
+
             val fieldsConfig = JsonUtils.parseFieldsConfig(product.fieldsConfigJson)
 
             // Validate required fields
@@ -298,7 +344,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun upgradeToPremium(onSuccess: () -> Unit) {
         viewModelScope.launch {
             val user = currentUser.value ?: return@launch
-            val cost = appConfigs.value["premium_upgrade_cost_coins"]?.toLongOrNull() ?: 3000L
+            val cost = calculateProUpgradeCost()
             val result = userRepository.upgradeToPremium(user.id, cost)
             result.onSuccess {
                 showMessage("Upgraded to Premium Member! All VIP tasks are now unlocked.")
@@ -342,6 +388,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun onSpinComplete(wonCoins: Long) {
         viewModelScope.launch {
             val user = currentUser.value ?: return@launch
+            if (!user.isActivated) {
+                showMessage("Account activation required to earn rewards! Please activate your account.", isError = true)
+                return@launch
+            }
             val state = _spinTaskState.value ?: rewardRepository.getTaskState(user.id, "SPIN", 10)
             if (state.countCompleted >= state.maxAllowed) {
                 showMessage("Daily spin limit reached (10/10)!", isError = true)
@@ -365,6 +415,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun onScratchComplete(wonCoins: Long) {
         viewModelScope.launch {
             val user = currentUser.value ?: return@launch
+            if (!user.isActivated) {
+                showMessage("Account activation required to earn rewards! Please activate your account.", isError = true)
+                return@launch
+            }
             val state = _scratchTaskState.value ?: rewardRepository.getTaskState(user.id, "SCRATCH", 10)
             if (state.countCompleted >= state.maxAllowed) {
                 showMessage("Daily scratch limit reached (10/10)!", isError = true)
@@ -388,6 +442,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun onQuizCompleted(correctCount: Int, coinsPerAnswer: Long = 25) {
         viewModelScope.launch {
             val user = currentUser.value ?: return@launch
+            if (!user.isActivated) {
+                showMessage("Account activation required to earn rewards! Please activate your account.", isError = true)
+                return@launch
+            }
             val totalCoins = correctCount * coinsPerAnswer
             if (totalCoins > 0) {
                 userRepository.addRewardCoins(
@@ -405,6 +463,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun onArticleReadComplete(coins: Long = 30) {
         viewModelScope.launch {
             val user = currentUser.value ?: return@launch
+            if (!user.isActivated) {
+                showMessage("Account activation required to earn rewards! Please activate your account.", isError = true)
+                return@launch
+            }
             userRepository.addRewardCoins(
                 userId = user.id,
                 coins = coins,
@@ -419,6 +481,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun onSocialTaskComplete(taskName: String, coins: Long = 200) {
         viewModelScope.launch {
             val user = currentUser.value ?: return@launch
+            if (!user.isActivated) {
+                showMessage("Account activation required to earn rewards! Please activate your account.", isError = true)
+                return@launch
+            }
             userRepository.addRewardCoins(
                 userId = user.id,
                 coins = coins,
@@ -664,6 +730,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             userRepository.adminAdjustBalance(userId, newCoins, reason, "Admin")
             showMessage("User balance updated to ৳$newCoins")
+        }
+    }
+
+    fun adminSetUserActivation(userId: Long, isActivated: Boolean) {
+        viewModelScope.launch {
+            userRepository.adminSetUserActivation(userId, isActivated, "Admin")
+            showMessage("User account marked as ${if (isActivated) "Active" else "Inactive"}")
         }
     }
 

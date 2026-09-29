@@ -182,7 +182,7 @@ fun WalletScreen(
                     ) {
                         Column {
                             Text(
-                                text = "available_coins".tr(lang),
+                                text = "available_balance".tr(lang),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -522,7 +522,7 @@ fun WalletScreen(
                             OutlinedTextField(
                                 value = withdrawAmountStr,
                                 onValueChange = { withdrawAmountStr = it },
-                                label = { Text("withdraw_amount_coins".tr(lang)) },
+                                label = { Text("withdraw_amount_bdt".tr(lang)) },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .testTag("withdraw_amount_input"),
@@ -842,7 +842,7 @@ fun WalletScreen(
                             OutlinedTextField(
                                 value = depositAmountStr,
                                 onValueChange = { depositAmountStr = it },
-                                label = { Text("withdraw_amount_coins".tr(lang)) },
+                                label = { Text("deposit_amount_bdt".tr(lang)) },
                                 modifier = Modifier.fillMaxWidth().testTag("deposit_amount_input"),
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

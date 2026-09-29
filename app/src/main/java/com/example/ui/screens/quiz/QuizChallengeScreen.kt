@@ -326,7 +326,7 @@ fun QuizChallengeScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "+${score * 25} Coins added to your wallet!",
+                        text = "+৳${score * 25} added to your wallet!",
                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
                         color = GoldAccent
                     )

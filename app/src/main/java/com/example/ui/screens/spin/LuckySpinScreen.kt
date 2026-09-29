@@ -336,7 +336,7 @@ fun LuckySpinScreen(
             },
             text = {
                 Text(
-                    text = "${"congrats_win".tr(lang)} $coinsWon ${"coins".tr(lang)}!",
+                    text = "${"congrats_win".tr(lang)} ৳$coinsWon!",
                     style = MaterialTheme.typography.bodyLarge
                 )
             },

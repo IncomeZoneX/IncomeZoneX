@@ -199,6 +199,9 @@ interface TaskSubmissionDao {
 
     @Query("DELETE FROM task_submissions WHERE status = 'APPROVED' AND processedAt IS NOT NULL AND processedAt < :cutoffTimestamp")
     suspend fun deleteApprovedSubmissionsOlderThan(cutoffTimestamp: Long): Int
+
+    @Query("SELECT COUNT(*) FROM task_submissions WHERE userId = :userId AND submittedAt >= :startOfDayTimestamp AND (groupId = 3 OR membershipType = 'PREMIUM')")
+    suspend fun getTodayProSubmissionCount(userId: Long, startOfDayTimestamp: Long): Int
 }
 
 @Dao

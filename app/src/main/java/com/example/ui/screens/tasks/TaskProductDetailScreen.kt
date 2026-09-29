@@ -77,6 +77,10 @@ fun TaskProductDetailScreen(
     val isProTask = group.accessRule == "PREMIUM" || product.accessRule == "PREMIUM"
     val proDailyLimit = configs["pro_daily_task_limit"] ?: "10"
 
+    val now = System.currentTimeMillis()
+    val isScheduledMaintenance = product.scheduleStart > 0 && product.scheduleEnd > 0 && now in product.scheduleStart..product.scheduleEnd
+    val isProductAvailable = product.isEnabled && !isScheduledMaintenance
+
     Scaffold(
         topBar = {
             TakaTopBar(
@@ -136,7 +140,7 @@ fun TaskProductDetailScreen(
             }
 
             // Task Offline / Maintenance Notice
-            if (!product.isEnabled) {
+            if (!isProductAvailable) {
                 Card(
                     modifier = Modifier.fillMaxWidth().testTag("task_maintenance_card"),
                     shape = RoundedCornerShape(16.dp),
@@ -148,12 +152,26 @@ fun TaskProductDetailScreen(
                     ) {
                         Icon(Icons.Default.Info, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(36.dp))
                         Spacer(modifier = Modifier.height(8.dp))
+                        val notice = if (lang == LanguageCode.BN) {
+                            product.maintenanceNoticeBn.ifBlank { product.maintenanceNotice.ifBlank { "task_offline_notice".tr(lang) } }
+                        } else {
+                            product.maintenanceNotice.ifBlank { "task_offline_notice".tr(lang) }
+                        }
                         Text(
-                            text = if (product.maintenanceNotice.isNotBlank()) product.maintenanceNotice else "task_offline_notice".tr(lang),
+                            text = notice,
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
+                        if (product.upcomingNotice.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = product.upcomingNotice,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GoldAccent,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
                     }
                 }
             }
@@ -335,17 +353,27 @@ fun TaskProductDetailScreen(
                                 onSuccess = onSubmitSuccess
                             )
                         },
+                        enabled = isUserActivated && isProductAvailable,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)
                             .testTag("submit_task_form_button"),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isUserActivated && isProductAvailable) EmeraldPrimary else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isUserActivated && isProductAvailable) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     ) {
                         Icon(imageVector = Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "submit".tr(lang),
+                            text = if (!isUserActivated) {
+                                "${"submit".tr(lang)} (Activation Required)"
+                            } else if (!isProductAvailable) {
+                                "Task Under Maintenance"
+                            } else {
+                                "submit".tr(lang)
+                            },
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }

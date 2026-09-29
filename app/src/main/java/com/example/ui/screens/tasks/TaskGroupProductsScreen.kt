@@ -66,7 +66,7 @@ fun TaskGroupProductsScreen(
     val groupProducts = allProducts.filter { it.groupId == group.id && it.isEnabled }
     val userTier = user?.membershipTier ?: "FREE"
     val isGroupLocked = group.accessRule == "PREMIUM" && userTier != "PREMIUM"
-    val upgradeCost = configs["premium_upgrade_cost_coins"]?.toLongOrNull() ?: 3000L
+    val upgradeCost = viewModel.calculateProUpgradeCost()
 
     Scaffold(
         topBar = {

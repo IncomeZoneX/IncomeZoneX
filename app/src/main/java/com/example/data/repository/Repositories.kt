@@ -298,6 +298,18 @@ class UserRepository(
         )
         return Result.success(Unit)
     }
+
+    suspend fun adminSetUserActivation(userId: Long, isActivated: Boolean, adminName: String): Result<Unit> {
+        userDao.updateActivationStatus(userId, isActivated)
+        auditLogDao.insertAuditLog(
+            AuditLogEntity(
+                action = "ADMIN_SET_ACTIVATION",
+                details = "Admin $adminName set user $userId activation to ${if (isActivated) "ACTIVE" else "INACTIVE"}",
+                performedBy = adminName
+            )
+        )
+        return Result.success(Unit)
+    }
 }
 
 class RewardRepository(
@@ -517,6 +529,21 @@ class ProductRepository(
 
     fun getAllSubmissions(): Flow<List<TaskSubmissionEntity>> =
         submissionDao.getAllSubmissions()
+
+    suspend fun getTodayProTaskCount(userId: Long): Int {
+        val cal = java.util.Calendar.getInstance()
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        cal.set(java.util.Calendar.MINUTE, 0)
+        cal.set(java.util.Calendar.SECOND, 0)
+        cal.set(java.util.Calendar.MILLISECOND, 0)
+        val startOfDay = cal.timeInMillis
+        return submissionDao.getTodayProSubmissionCount(userId, startOfDay)
+    }
+
+    suspend fun cleanOldApprovedSubmissions(): Int {
+        val twentyFourHoursAgo = System.currentTimeMillis() - (24 * 60 * 60 * 1000L)
+        return submissionDao.deleteApprovedSubmissionsOlderThan(twentyFourHoursAgo)
+    }
 
     suspend fun submitTask(
         userId: Long,
