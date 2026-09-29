@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -82,6 +83,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -260,15 +262,16 @@ fun MainAppContent(
                         Box(
                             modifier = Modifier
                                 .size(48.dp)
-                                .clip(CircleShape)
-                                .background(GoldAccent.copy(alpha = 0.2f)),
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF06281E)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.MonetizationOn,
-                                contentDescription = null,
-                                tint = GoldAccent,
-                                modifier = Modifier.size(28.dp)
+                            Image(
+                                painter = painterResource(id = R.drawable.app_logo_icon),
+                                contentDescription = "IncomeZoneX Logo",
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(12.dp))
                             )
                         }
 

@@ -1,5 +1,6 @@
 package com.example.ui.screens.auth
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,12 +50,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.MainViewModel
+import com.example.R
 import com.example.ui.components.TakaTopBar
 import com.example.ui.localization.tr
 import com.example.ui.theme.EmeraldPrimary
@@ -106,19 +109,20 @@ fun AuthScreen(
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // App Logo Icon
+            // App Logo Icon (I + Z + X)
             Box(
                 modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(GoldAccent.copy(alpha = 0.2f)),
+                    .size(86.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(Color(0xFF06281E)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.MonetizationOn,
-                    contentDescription = null,
-                    tint = GoldAccent,
-                    modifier = Modifier.size(50.dp)
+                Image(
+                    painter = painterResource(id = R.drawable.app_logo_icon),
+                    contentDescription = "IncomeZoneX Logo",
+                    modifier = Modifier
+                        .size(86.dp)
+                        .clip(RoundedCornerShape(22.dp))
                 )
             }
 

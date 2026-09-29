@@ -1,0 +1,83 @@
+name: Build & Release Member APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release-member:
+    name: Build & Release Member APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Build Member APK
+        run: |
+          gradle :app:assembleDebug --no-daemon
+          mkdir -p release-output
+          cp app/build/outputs/apk/debug/app-debug.apk release-output/Income-Jon-X-Member.apk
+
+      - name: Determine Tag Name
+        id: tag_gen
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            TIMESTAMP=$(date +'%Y%m%d-%H%M%S')
+            echo "TAG_NAME=v1.0.0-${TIMESTAMP}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish GitHub Release (Member APK Only)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_gen.outputs.TAG_NAME }}
+          name: Income জন X Member Release ${{ steps.tag_gen.outputs.TAG_NAME }}
+          body: |
+            ## Income জন X (IncomeZoneX) - Member App Release
+            
+            🚀 Official production build for Income জন X Member Application.
+
+            ### Package Details:
+            - **App Name:** Income জন X (IncomeZoneX)
+            - **Package ID:** `com.aistudio.takareward.kxvq`
+            - **Platform:** Android (Min SDK 24 / Target SDK 36)
+            - **Artifact:** `Income-Jon-X-Member.apk`
+
+            ### Features:
+            - 100% Bangladeshi Taka (৳ / BDT) currency system across all modules.
+            - Daily reward activities: Lucky Spin, Scratch Card, Quiz Challenge, Article Reader, Social tasks.
+            - Tiered Task Ecosystem (General Tasks & VIP Pro Tasks) with daily submission limits.
+            - Comprehensive Wallet: Real-time Available Balance, Deposits (bKash, Nagad, Rocket, Upay, USDT TRC-20), Withdrawals with automatic admin fee calculations.
+            - Referral Program with Deep-Link invite URLs (`https://incomezonex.com/join?ref=...`).
+            - Complete Bengali & English dual-language localization and Dark/Light theme switching.
+            - Global system maintenance mode protection and real-time announcements.
+
+            ---
+            *Note: The Admin APK is strictly excluded from public releases and retained in the secure administrative repository.*
+          files: |
+            release-output/Income-Jon-X-Member.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
